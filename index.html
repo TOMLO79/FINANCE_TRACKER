@@ -73,6 +73,15 @@ select option{background:var(--surface)}
 .data-table td{padding:8px 7px;border-bottom:1px solid rgba(46,51,72,.5);font-size:.85rem;vertical-align:middle}
 .data-table tr:last-child td{border-bottom:none}
 .data-table tr:hover td{background:rgba(128,128,128,.05)}
+/* širší tabulky (Všechny výdaje, Fixní, Zlato) — na mobilu ať se posouvá jen tabulka, ne celá stránka */
+.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;position:relative}
+.table-wrap .data-table{min-width:620px}
+.table-wrap th:first-child,.table-wrap td:first-child{position:sticky;left:0;background:var(--surface);z-index:1}
+.table-wrap tr:hover td:first-child{background:var(--surface)}
+@media (max-width:640px){
+  .table-wrap .data-table{min-width:540px}
+  .col-group{display:none}
+}
 .amount-cell{font-family:'Space Mono',monospace;font-size:.82rem}
 .amount-neg{color:var(--red)}.amount-pos{color:var(--accent)}.amount-gold{color:var(--accent2)}
 .actions-cell{display:flex;gap:4px;justify-content:flex-end}
@@ -981,7 +990,7 @@ function render(){
             <td>${e.name}</td>
             <td><span class="tag ${e.type==='fixed'?'tag-fixed':'tag-extra'}">${e.type==='fixed'?'Fixní':'Variab.'}</span>${e.type==='fixed'&&e.freq&&e.freq!=='monthly'?` <span class="tag tag-freq-${e.freq}">${FREQ_LABELS[e.freq]}</span>`:''}</td>
             <td>${e.cat?`<span class="tag tag-cat">${e.cat}</span>`:''}</td>
-            <td>${grp?`<span class="tag tag-group">${grp}</span>`:''}</td>
+            <td class="col-group">${grp?`<span class="tag tag-group">${grp}</span>`:''}</td>
             <td class="amount-cell amount-neg" style="text-align:right">${fmt(e.amount)}</td>
             <td style="text-align:right">
               ${isPaid?`<input class="corr-input" id="corr_${k}" type="number" value="${corrAmt}" placeholder="skut." onchange="saveCorrAmount('${e.type}',${e.idx})"/>`:''}
@@ -994,7 +1003,7 @@ function render(){
       return h;
     };
 
-    const thead=`<thead><tr><th>✓</th><th>Den</th><th>Název</th><th>Typ</th><th>Kategorie</th><th>Skupina</th><th style="text-align:right">Částka</th><th style="text-align:right">Skutečná</th><th></th></tr></thead>`;
+    const thead=`<thead><tr><th>✓</th><th>Den</th><th>Název</th><th>Typ</th><th>Kategorie</th><th class="col-group">Skupina</th><th style="text-align:right">Částka</th><th style="text-align:right">Skutečná</th><th></th></tr></thead>`;
     let h=`<table class="data-table">${thead}<tbody>`;
     if(period1.length>0){
       h+=`<tr><td colspan="9"><span class="period-label">📅 Od ${payDay}. — platby aktuálního měsíce</span></td></tr>`;
@@ -1005,7 +1014,7 @@ function render(){
       h+=buildRows(period2);
     }
     h+='</tbody></table>';
-    allWrap.innerHTML=h;
+    allWrap.innerHTML=`<div class="table-wrap">${h}</div>`;
   }
   document.getElementById('totalExpenses').textContent=fmt(totalExp);
 
@@ -1046,7 +1055,7 @@ function render(){
   if(baseExpenses.length===0){
     fixedWrap.innerHTML='<div class="empty-state">Žádné fixní výdaje</div>';
   }else{
-    let h='<table class="data-table"><thead><tr><th>Den</th><th>Název</th><th>Kategorie</th><th>Skupina</th><th>Frekvence</th><th style="text-align:right">Částka</th><th></th></tr></thead><tbody>';
+    let h='<table class="data-table"><thead><tr><th>Den</th><th>Název</th><th>Kategorie</th><th class="col-group">Skupina</th><th>Frekvence</th><th style="text-align:right">Částka</th><th></th></tr></thead><tbody>';
     baseExpenses.forEach((e,i)=>{
       const grp=e.cat&&cgMap[e.cat]?cgMap[e.cat]:'';
       const freq=e.freq||'monthly';
@@ -1069,7 +1078,7 @@ function render(){
           <td style="color:var(--muted);font-size:.78rem">${e.day||'—'}</td>
           <td>${e.name}</td>
           <td>${e.cat?`<span class="tag tag-cat">${e.cat}</span>`:''}</td>
-          <td>${grp?`<span class="tag tag-group">${grp}</span>`:''}</td>
+          <td class="col-group">${grp?`<span class="tag tag-group">${grp}</span>`:''}</td>
           <td>${freq==='monthly'?`<span style="font-size:.72rem;color:var(--muted)">Měsíčně</span>`:`<span class="tag tag-freq-${freq}">${FREQ_LABELS[freq]} · ${MONTH_NAMES[(e.dueMonth||1)-1]}</span>`}</td>
           <td class="amount-cell amount-neg" style="text-align:right">${fmt(e.amount)}</td>
           <td class="actions-cell">
@@ -1080,7 +1089,7 @@ function render(){
       }
     });
     h+='</tbody></table>';
-    fixedWrap.innerHTML=h;
+    fixedWrap.innerHTML=`<div class="table-wrap">${h}</div>`;
   }
   document.getElementById('totalFixed').textContent=fmt(totalFixedAll);
   document.getElementById('totalFixedDue').textContent=fmt(totalFixed);
@@ -1154,7 +1163,7 @@ function render(){
       </tr>`;
     });
     h+='</tbody></table>';
-    goldWrap.innerHTML=h;
+    goldWrap.innerHTML=`<div class="table-wrap">${h}</div>`;
   }
   document.getElementById('goldTotalBuy').textContent=fmt(totalGoldBuy);
   document.getElementById('goldTotal').textContent=fmt(totalGoldVal);
