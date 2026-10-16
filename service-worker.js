@@ -1,7 +1,7 @@
 // Finance Tracker — service worker
 // Cache-first pro appku samotnou (funguje offline), síť s fallbackem pro CDN zdroje.
 // Při každé viditelné změně appky zvyš CACHE_VERSION, ať si prohlížeče stáhnou nové soubory.
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const CACHE_NAME = 'finance-tracker-' + CACHE_VERSION;
 
 const APP_SHELL = [
