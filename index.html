@@ -1,0 +1,1351 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<title>Finance Tracker</title>
+<meta name="description" content="Osobní finanční tracker — výplata, fixní a variabilní výdaje, úspory, zlato."/>
+<!-- PWA -->
+<link rel="manifest" href="./manifest.json"/>
+<meta name="theme-color" content="#0f1117"/>
+<link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png"/>
+<link rel="apple-touch-icon" href="./icons/icon-192.png"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="Finance"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root{--bg:#0f1117;--surface:#1a1d27;--surface2:#22263a;--border:#2e3348;--accent:#00e5a0;--accent2:#f7c948;--red:#ff4f6a;--blue:#4f8fff;--purple:#b06aff;--orange:#ff7f40;--text:#e8eaf0;--muted:#7a7f96;--radius:14px}
+body.light{--bg:#f0f2f7;--surface:#fff;--surface2:#e5e9f4;--border:#cdd3e8;--accent:#009e6e;--accent2:#a07800;--red:#d63651;--blue:#2563d4;--purple:#7c3fd4;--orange:#c4570a;--text:#1a1d2e;--muted:#6370a0}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:15px;transition:background .2s,color .2s}
+/* IO + THEME BAR */
+.io-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:7px 16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.io-bar .io-lbl{font-size:.7rem;color:var(--muted);font-family:'Space Mono',monospace}
+.io-msg{font-size:.74rem;padding:2px 9px;border-radius:6px;font-weight:600;display:none}
+.io-msg.ok{background:rgba(0,229,160,.15);color:var(--accent)}
+.io-msg.err{background:rgba(255,79,106,.18);color:var(--red)}
+.theme-toggle{margin-left:auto;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:3px 5px;display:flex;align-items:center;gap:2px;cursor:pointer;user-select:none}
+.theme-toggle .th-opt{padding:3px 10px;border-radius:16px;font-size:.71rem;font-weight:600;color:var(--muted);transition:all .18s;white-space:nowrap}
+.theme-toggle .th-opt.active{background:var(--accent);color:#0f1117}
+/* PAYMENT STATUS */
+.paid-row td{opacity:.55;text-decoration:line-through}
+.paid-row td:first-child,.paid-row td:last-child{text-decoration:none;opacity:1}
+.paid-badge{display:inline-block;padding:1px 7px;border-radius:10px;font-size:.67rem;font-weight:700;background:rgba(0,229,160,.15);color:var(--accent)}
+.unpaid-badge{display:inline-block;padding:1px 7px;border-radius:10px;font-size:.67rem;font-weight:700;background:rgba(255,79,106,.1);color:var(--red)}
+.period-label{font-size:.7rem;color:var(--muted);font-family:'Space Mono',monospace;padding:8px 7px 4px;display:block;text-transform:uppercase;letter-spacing:.8px}
+.pay-check{width:16px;height:16px;accent-color:var(--accent);cursor:pointer}
+.corr-input{width:90px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--accent);padding:3px 6px;font-size:.8rem;font-family:'Space Mono',monospace}
+.stat-box.highlight{border-color:var(--accent);background:rgba(0,229,160,.06)}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:15px 20px;display:flex;align-items:center;gap:12px}
+header h1{font-family:'Space Mono',monospace;font-size:1rem;color:var(--accent);letter-spacing:1px}
+header .hmonth{color:var(--muted);font-size:.78rem;font-family:'Space Mono',monospace;margin-left:auto}
+nav{display:flex;background:var(--surface);border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none}
+nav button{flex:1;min-width:90px;padding:11px 5px;border:none;background:transparent;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:.78rem;font-weight:500;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;white-space:nowrap}
+nav button:hover{color:var(--text)}
+nav button.active{color:var(--accent);border-bottom:2px solid var(--accent);background:rgba(0,229,160,.05)}
+.container{display:none;padding:14px;max-width:780px;margin:0 auto}
+.container.active{display:block}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+.card h3{font-family:'Space Mono',monospace;font-size:.72rem;color:var(--accent);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px}
+.form-row{display:flex;flex-wrap:wrap;gap:7px;align-items:flex-end;margin-bottom:7px}
+.form-group{display:flex;flex-direction:column;gap:3px;flex:1;min-width:88px}
+.form-group label{font-size:.67rem;color:var(--muted);text-transform:uppercase;letter-spacing:.8px}
+input[type=text],input[type=number],input[type=date],select{background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:7px 10px;font-family:'DM Sans',sans-serif;font-size:.86rem;width:100%;transition:border .2s}
+input:focus,select:focus{outline:none;border-color:var(--accent)}
+select option{background:var(--surface)}
+.btn{padding:7px 14px;border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:.83rem;font-weight:600;cursor:pointer;transition:opacity .2s,transform .1s;white-space:nowrap}
+.btn:hover{opacity:.82}.btn:active{transform:scale(.97)}
+.btn-primary{background:var(--accent);color:#0f1117}
+.btn-danger{background:var(--red);color:#fff}
+.btn-warn{background:var(--accent2);color:#0f1117}
+.btn-ghost{background:var(--surface2);color:var(--text);border:1px solid var(--border)}
+.btn-orange{background:var(--orange);color:#fff}
+.btn-sm{padding:4px 9px;font-size:.75rem;border-radius:6px}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:9px;margin-bottom:12px}
+.stat-box{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px}
+.stat-box .label{font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:5px}
+.stat-box .value{font-family:'Space Mono',monospace;font-size:.98rem;font-weight:700}
+.value.positive{color:var(--accent)}.value.negative{color:var(--red)}.value.gold{color:var(--accent2)}.value.blue{color:var(--blue)}.value.purple{color:var(--purple)}
+.data-table{width:100%;border-collapse:collapse;margin-top:6px}
+.data-table th{font-size:.64rem;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;padding:5px 7px;border-bottom:1px solid var(--border);text-align:left}
+.data-table td{padding:8px 7px;border-bottom:1px solid rgba(46,51,72,.5);font-size:.85rem;vertical-align:middle}
+.data-table tr:last-child td{border-bottom:none}
+.data-table tr:hover td{background:rgba(128,128,128,.05)}
+.amount-cell{font-family:'Space Mono',monospace;font-size:.82rem}
+.amount-neg{color:var(--red)}.amount-pos{color:var(--accent)}.amount-gold{color:var(--accent2)}
+.actions-cell{display:flex;gap:4px;justify-content:flex-end}
+.tag{display:inline-block;padding:2px 7px;border-radius:20px;font-size:.67rem;font-weight:600}
+.tag-fixed{background:rgba(79,143,255,.15);color:var(--blue)}
+.tag-extra{background:rgba(255,79,106,.15);color:var(--red)}
+.tag-cat{background:rgba(176,106,255,.15);color:var(--purple)}
+.tag-group{background:rgba(255,127,64,.15);color:var(--orange)}
+.tag-freq-quarterly{background:rgba(247,201,72,.15);color:var(--accent2)}
+.tag-freq-semiannual{background:rgba(255,127,64,.15);color:var(--orange)}
+.tag-freq-annual{background:rgba(176,106,255,.15);color:var(--purple)}
+.not-due-row td{opacity:.4}
+.not-due-row td:last-child{opacity:1}
+#chartWrap{position:relative;height:190px;margin-top:12px}
+#catChartWrap{position:relative;height:200px;margin-top:12px}
+#groupChartWrap{position:relative;height:200px;margin-top:12px}
+.profit-pos{color:var(--accent);font-size:.76rem}.profit-neg{color:var(--red);font-size:.76rem}
+.savings-item{display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid rgba(46,51,72,.5)}
+.savings-item:last-child{border-bottom:none}
+.savings-info{flex:1;min-width:0}
+.savings-info .sname{font-weight:600;font-size:.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.savings-info .smeta{font-size:.7rem;color:var(--muted);margin-top:2px;display:flex;gap:8px;flex-wrap:wrap}
+.savings-amount{font-family:'Space Mono',monospace;font-size:.92rem;color:var(--accent);font-weight:700;white-space:nowrap}
+.liq-badge{display:inline-block;padding:1px 7px;border-radius:20px;font-size:.65rem;font-weight:700}
+.liq-0{background:rgba(0,229,160,.18);color:var(--accent)}
+.liq-1{background:rgba(79,143,255,.18);color:var(--blue)}
+.liq-2{background:rgba(247,201,72,.18);color:var(--accent2)}
+.edit-row{background:var(--surface2);border-radius:10px;padding:11px;margin:5px 0;border:1px solid var(--accent)}
+.gold-rate-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:11px;background:rgba(247,201,72,.07);border:1px solid rgba(247,201,72,.2);border-radius:10px;margin-bottom:11px}
+.gold-rate-bar label{font-size:.73rem;color:var(--accent2);font-weight:600;white-space:nowrap}
+.gold-spot-info{background:rgba(247,201,72,.05);border:1px solid rgba(247,201,72,.15);border-radius:8px;padding:10px 14px;font-size:.82rem;display:flex;flex-wrap:wrap;gap:16px;align-items:center;margin-bottom:10px}
+.gold-spot-info .gsi-label{color:var(--muted);font-size:.7rem}
+.gold-spot-info .gsi-val{font-family:'Space Mono',monospace;font-weight:700;color:var(--accent2)}
+.empty-state{text-align:center;padding:26px 0;color:var(--muted);font-size:.83rem}
+.section-total{display:flex;justify-content:flex-end;align-items:center;gap:7px;padding-top:9px;font-family:'Space Mono',monospace;font-size:.8rem;flex-wrap:wrap}
+.section-total .label{color:var(--muted)}.section-total .value{font-weight:700}
+.cat-summary{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
+.cat-pill{background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:.76rem;display:flex;gap:7px;align-items:center}
+.cat-pill .cpname{color:var(--muted)}.cat-pill .cpamt{font-family:'Space Mono',monospace;color:var(--red);font-weight:700}
+.group-pill{background:rgba(255,127,64,.08);border:1px solid rgba(255,127,64,.25);border-radius:20px;padding:5px 13px;font-size:.78rem;display:flex;gap:8px;align-items:center}
+.group-pill .gpname{color:var(--orange);font-weight:600}.group-pill .gpamt{font-family:'Space Mono',monospace;color:var(--red);font-weight:700}
+.balance-edit{display:inline-flex;align-items:center;gap:6px}
+.balance-edit input{width:120px;flex:none}
+.liq-section-title{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:12px 0 6px;display:flex;justify-content:space-between;align-items:center}
+.liq-section-title .liq-total{font-family:'Space Mono',monospace;font-size:.8rem}
+.liq-0-title{color:var(--accent)}.liq-1-title{color:var(--blue)}.liq-2-title{color:var(--accent2)}
+.cat-manage-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.cat-chip{background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:4px 10px;font-size:.78rem;display:flex;align-items:center;gap:6px}
+.cat-chip button{background:none;border:none;color:var(--red);cursor:pointer;font-size:.85rem;padding:0;line-height:1}
+.group-chip{background:rgba(255,127,64,.1);border:1px solid rgba(255,127,64,.3);border-radius:20px;padding:4px 10px;font-size:.78rem;display:flex;align-items:center;gap:6px;color:var(--orange)}
+.group-chip button{background:none;border:none;color:var(--red);cursor:pointer;font-size:.85rem;padding:0;line-height:1}
+.group-section{border:1px solid rgba(255,127,64,.2);border-radius:10px;padding:12px;margin-bottom:10px;background:rgba(255,127,64,.03)}
+.group-section-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.group-section-title .gtname{font-size:.78rem;font-weight:700;color:var(--orange)}
+.group-section-title .gtamt{font-family:'Space Mono',monospace;font-size:.9rem;color:var(--red);font-weight:700}
+.dash-groups{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+</style>
+</head>
+<body>
+
+<header>
+  <span>💰</span>
+  <h1>FINANCE TRACKER</h1>
+  <span class="hmonth" id="headerMonth"></span>
+</header>
+
+<nav>
+  <button onclick="showTab('main')" class="active" id="tab-main">📊 Dashboard</button>
+  <button onclick="showTab('fixed')" id="tab-fixed">📌 Fixní</button>
+  <button onclick="showTab('savings')" id="tab-savings">💎 Úspory</button>
+  <button onclick="showTab('gold')" id="tab-gold">🥇 Zlato</button>
+  <button onclick="showTab('cats')" id="tab-cats">🏷 Kategorie</button>
+</nav>
+
+<!-- ===== IO + THEME BAR ===== -->
+<div class="io-bar">
+  <span class="io-lbl">💾 DATA</span>
+  <button class="btn btn-ghost btn-sm" onclick="exportData()">⬇ Export (.txt)</button>
+  <label class="btn btn-ghost btn-sm" style="cursor:pointer;margin:0">⬆ Import
+    <input type="file" accept=".txt,.json" id="importFile" style="display:none" onchange="importData(event)"/>
+  </label>
+  <span class="io-msg" id="ioMsg"></span>
+  <div class="theme-toggle" onclick="toggleTheme()">
+    <span class="th-opt" id="thDark">🌙 Tmavý</span>
+    <span class="th-opt" id="thLight">☀ Světlý</span>
+  </div>
+</div>
+
+<!-- ===== DASHBOARD ===== -->
+<div id="main" class="container active">
+  <div class="card">
+    <h3>Výplata &amp; výplatní cyklus</h3>
+    <div class="form-row">
+      <div class="form-group" style="flex:2">
+        <label>Výplata (Kč)</label>
+        <input id="salaryInput" type="number" placeholder="0"/>
+      </div>
+      <div class="form-group" style="flex:none;width:90px">
+        <label>Den výplaty</label>
+        <input id="payDayInput" type="number" placeholder="15" min="1" max="28"/>
+      </div>
+      <div style="display:flex;gap:6px;align-items:flex-end">
+        <button class="btn btn-primary" onclick="saveSalary()">Uložit</button>
+        <button class="btn btn-ghost" onclick="resetMonth()">Nový měsíc</button>
+      </div>
+    </div>
+    <div style="font-size:.76rem;color:var(--muted);margin-top:4px" id="cycleLabel"></div>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-box"><div class="label">Výplata</div><div class="value blue" id="statSalary">0 Kč</div></div>
+    <div class="stat-box"><div class="label">Fixní výdaje (tento cyklus)</div><div class="value negative" id="statFixed">0 Kč</div></div>
+    <div class="stat-box"><div class="label">Ø měsíčně (rozpočet)</div><div class="value negative" id="statFixedAvg">0 Kč</div></div>
+    <div class="stat-box"><div class="label">Variabilní</div><div class="value negative" id="statExtra">0 Kč</div></div>
+    <div class="stat-box"><div class="label">Zůstatek</div><div class="value positive" id="statBalance">0 Kč</div></div>
+    <div class="stat-box highlight"><div class="label">✓ Zaplaceno</div><div class="value positive" id="statPaid">0 Kč</div></div>
+    <div class="stat-box highlight"><div class="label">⏳ Zbývá zaplatit</div><div class="value negative" id="statUnpaid">0 Kč</div></div>
+    <div class="stat-box highlight"><div class="label">💰 Volný zůstatek</div><div class="value positive" id="statFree">0 Kč</div></div>
+    <div class="stat-box"><div class="label">Úspory celkem</div><div class="value positive" id="statSavings">0 Kč</div></div>
+    <div class="stat-box"><div class="label">Zlato</div><div class="value gold" id="statGold">0 Kč</div></div>
+    <div class="stat-box"><div class="label">Celkové jmění</div><div class="value purple" id="statNet">0 Kč</div></div>
+  </div>
+
+  <!-- Skupiny na dashboardu -->
+  <div class="card" id="dashGroupsCard" style="display:none">
+    <h3>Součty skupin kategorií</h3>
+    <div class="dash-groups" id="dashGroups"></div>
+    <div id="groupChartWrap"><canvas id="groupChart"></canvas></div>
+  </div>
+
+  <div class="card">
+    <h3>Zůstatek → Úspory</h3>
+    <div style="font-size:.82rem;color:var(--muted);margin-bottom:10px">Část zůstatku zahrnovaná do celkových úspor:</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Částka (Kč)</label>
+        <div class="balance-edit">
+          <input id="balanceSavingsInput" type="number" placeholder="0"/>
+          <button class="btn btn-primary btn-sm" onclick="saveBalanceSavings()">Uložit</button>
+        </div>
+      </div>
+      <div style="display:flex;align-items:flex-end;padding-bottom:2px">
+        <span style="font-size:.82rem">Zahrnuto: <span id="balanceSavingsShow" style="font-family:'Space Mono',monospace;color:var(--accent);font-weight:700">0 Kč</span></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Přidat výdaj</h3>
+    <div class="form-row">
+      <div class="form-group" style="flex:3"><label>Název</label><input id="expName" type="text" placeholder="Co jsem zaplatil..."/></div>
+      <div class="form-group"><label>Částka (Kč)</label><input id="expAmount" type="number" placeholder="0"/></div>
+      <div class="form-group"><label>Den</label><input id="expDay" type="number" placeholder="1–31" min="1" max="31"/></div>
+      <div class="form-group"><label>Kategorie</label><select id="expCat"><option value="">— bez —</option></select></div>
+      <div style="align-self:flex-end"><button class="btn btn-primary" onclick="addExpense()">Přidat</button></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Všechny výdaje</h3>
+    <div id="allExpensesWrap"><div class="empty-state">Žádné výdaje</div></div>
+    <div class="cat-summary" id="catSummary"></div>
+    <div id="catChartWrap" style="display:none"><canvas id="catChart"></canvas></div>
+    <div class="section-total">
+      <span class="label">Celkem výdaje:</span>
+      <span class="value amount-neg" id="totalExpenses">0 Kč</span>
+    </div>
+    <div id="chartWrap"><canvas id="chart"></canvas></div>
+  </div>
+</div>
+
+<!-- ===== FIXED ===== -->
+<div id="fixed" class="container">
+  <div class="card">
+    <h3>Přidat fixní výdaj</h3>
+    <div class="form-row">
+      <div class="form-group" style="flex:3"><label>Název</label><input id="fname" type="text" placeholder="Nájem, elektřina..."/></div>
+      <div class="form-group"><label>Částka (Kč)</label><input id="famount" type="number" placeholder="0"/></div>
+      <div class="form-group"><label>Den splatnosti</label><input id="fday" type="number" placeholder="1–31" min="1" max="31"/></div>
+      <div class="form-group"><label>Kategorie</label><select id="fcat"><option value="">— bez —</option></select></div>
+      <div class="form-group"><label>Frekvence</label>
+        <select id="ffreq" onchange="toggleDueMonthVisibility('ffreq')">
+          <option value="monthly">Měsíčně</option>
+          <option value="quarterly">Kvartálně</option>
+          <option value="semiannual">Pololetně</option>
+          <option value="annual">Ročně</option>
+        </select>
+      </div>
+      <div class="form-group" id="ffreq_dmwrap" style="display:none"><label>Splatný měsíc</label>
+        <select id="ffreq_dmwrap_sel"></select>
+      </div>
+      <div style="align-self:flex-end"><button class="btn btn-primary" onclick="addFixed()">Přidat</button></div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Fixní výdaje</h3>
+    <p style="font-size:.78rem;color:var(--muted);margin-bottom:8px">Fixní výdaje bez ohledu na frekvenci. Šedě jsou ty, které nejsou splatné v aktuálním výplatním cyklu.</p>
+    <div id="fixedWrap"><div class="empty-state">Žádné fixní výdaje</div></div>
+    <div class="section-total"><span class="label">Celkem (vše):</span><span class="value amount-neg" id="totalFixed">0 Kč</span></div>
+    <div class="section-total"><span class="label">Splatné tento cyklus:</span><span class="value amount-neg" id="totalFixedDue">0 Kč</span></div>
+    <div class="section-total"><span class="label">Ø měsíčně (rozpočet):</span><span class="value amount-neg" id="totalFixedAvg">0 Kč</span></div>
+  </div>
+</div>
+
+<!-- ===== SAVINGS ===== -->
+<div id="savings" class="container">
+  <div class="card">
+    <h3>Přidat úspory</h3>
+    <div class="form-row">
+      <div class="form-group" style="flex:3"><label>Název</label><input id="sName" type="text" placeholder="Spořicí účet, fond..."/></div>
+      <div class="form-group"><label>Částka (Kč)</label><input id="sAmount" type="number" placeholder="0"/></div>
+      <div class="form-group"><label>Datum aktualizace</label><input id="sDate" type="date"/></div>
+      <div class="form-group">
+        <label>Likvidita</label>
+        <select id="sLiq">
+          <option value="0">⚡ Okamžitá</option>
+          <option value="1">📅 Střednědobá</option>
+          <option value="2">🔒 Dlouhá</option>
+        </select>
+      </div>
+      <div style="align-self:flex-end"><button class="btn btn-primary" onclick="addSaving()">Přidat</button></div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Přehled úspor</h3>
+    <div id="savingsWrap"></div>
+    <div class="section-total" style="margin-top:12px">
+      <span class="label">Okamžitá:</span><span class="value amount-pos" id="totalSavLiq0">0 Kč</span>
+      <span class="label" style="margin-left:10px">Střednědobá:</span><span class="value" style="color:var(--blue)" id="totalSavLiq1">0 Kč</span>
+      <span class="label" style="margin-left:10px">Dlouhá:</span><span class="value" style="color:var(--accent2)" id="totalSavLiq2">0 Kč</span>
+    </div>
+    <div class="section-total"><span class="label">Celkem úspory:</span><span class="value amount-pos" id="totalSavings">0 Kč</span></div>
+  </div>
+</div>
+
+<!-- ===== GOLD ===== -->
+<div id="gold" class="container">
+  <div class="card">
+    <h3>Výkupní cena zlata — aktuální kurz</h3>
+    <div class="gold-spot-info" id="goldSpotInfo">
+      <div><div class="gsi-label">Stav</div><div class="gsi-val" id="spotStatus">Načítám…</div></div>
+      <div><div class="gsi-label">XAU/USD (troy oz)</div><div class="gsi-val" id="spotUSD">—</div></div>
+      <div><div class="gsi-label">USD/CZK</div><div class="gsi-val" id="spotCZK">—</div></div>
+      <div><div class="gsi-label">Výkup soukr. osoby (Kč/g)</div><div class="gsi-val" id="spotKcg" style="color:var(--accent)">—</div></div>
+      <div><button class="btn btn-warn btn-sm" onclick="fetchGoldPrice()">↻ Obnovit</button></div>
+    </div>
+    <div class="gold-rate-bar">
+      <label>Přepočítat kurz (Kč/g):</label>
+      <input type="number" id="goldRate" placeholder="např. 2850" style="width:120px;flex:none"/>
+      <button class="btn btn-warn btn-sm" onclick="applyGoldRate()">Přepočítat vše</button>
+      <span id="goldRateInfo" style="font-size:.73rem;color:var(--muted)"></span>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Přidat položku zlata</h3>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Typ</label>
+        <select id="gType">
+          <option value="">Vyberte...</option>
+          <option value="Cihlička">Cihlička</option>
+          <option value="Slitek">Slitek</option>
+          <option value="Šperk">Šperk</option>
+          <option value="Mince">Mince</option>
+          <option value="Jiné">Jiné</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Váha (g)</label><input id="gWeight" type="number" placeholder="0.0" step="0.01"/></div>
+      <div class="form-group"><label>Nákupní cena (Kč)</label><input id="gBuy" type="number" placeholder="0"/></div>
+      <div class="form-group"><label>Kurz při nákupu (Kč/g)</label><input id="gNow" type="number" placeholder="auto = nák./váha"/></div>
+      <div style="align-self:flex-end"><button class="btn btn-primary" onclick="addGoldItem()">Přidat</button></div>
+    </div>
+    <div style="font-size:.72rem;color:var(--muted);margin-top:4px">Kurz při nákupu se vypočte automaticky jako Nák.cena ÷ Váha, pokud jej nevyplníte.</div>
+  </div>
+  <div class="card">
+    <h3>Zlato v portfoliu</h3>
+    <div id="goldWrap"><div class="empty-state">Žádné záznamy</div></div>
+    <div class="section-total" style="flex-wrap:wrap;gap:12px">
+      <span class="label">Pořizovací cena:</span><span class="value amount-neg" id="goldTotalBuy">0 Kč</span>
+      <span class="label" style="margin-left:8px">Akt. hodnota:</span><span class="value amount-gold" id="goldTotal">0 Kč</span>
+      <span class="label" style="margin-left:8px">Zisk/Ztráta:</span><span class="value" id="goldProfit">0 Kč</span>
+    </div>
+  </div>
+</div>
+
+<!-- ===== CATEGORIES ===== -->
+<div id="cats" class="container">
+
+  <!-- SKUPINY -->
+  <div class="card">
+    <h3>Skupiny kategorií</h3>
+    <div style="font-size:.82rem;color:var(--muted);margin-bottom:10px">
+      Skupiny sdružují více kategorií dohromady — jejich součet se pak zobrazí na Dashboardu.
+    </div>
+    <div class="form-row">
+      <div class="form-group" style="flex:3"><label>Název skupiny</label><input id="groupName" type="text" placeholder="např. Všechny služby, Rodina..."/></div>
+      <div style="align-self:flex-end"><button class="btn btn-orange" onclick="addGroup()">Přidat skupinu</button></div>
+    </div>
+    <div class="cat-manage-list" id="groupManageList"></div>
+  </div>
+
+  <!-- KATEGORIE -->
+  <div class="card">
+    <h3>Kategorie výdajů</h3>
+    <div style="font-size:.82rem;color:var(--muted);margin-bottom:10px">
+      Každé kategorii lze přiřadit skupinu. Skupiny se sčítají na Dashboardu.
+    </div>
+    <div class="form-row">
+      <div class="form-group" style="flex:3"><label>Název kategorie</label><input id="catName" type="text" placeholder="Jídlo, Doprava, Zábava…"/></div>
+      <div class="form-group"><label>Skupina (volitelná)</label><select id="catGroupSel"><option value="">— bez skupiny —</option></select></div>
+      <div style="align-self:flex-end"><button class="btn btn-primary" onclick="addCategory()">Přidat</button></div>
+    </div>
+    <div id="catManageList" style="margin-top:10px"></div>
+  </div>
+
+  <!-- PŘEHLED DLE SKUPIN + KATEGORIÍ -->
+  <div class="card">
+    <h3>Součet výdajů dle skupin a kategorií</h3>
+    <div id="catBreakdown"><div class="empty-state">Žádné kategorizované výdaje</div></div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// DATA & DEFAULTS
+// ============================================================
+const DEFAULTS = {
+  salary: 67235,
+  balanceSavings: 0,
+  // categories: array of {name, group}
+  categories: [
+    {name:'Náklady bez bydlení',group:''},
+    {name:'Náklady průběžné - Káva, Kuře, Nutrilon',group:''},
+    {name:'Náklady průběžné - Nákup, Holič, Dárky',group:''},
+    {name:'Úspory (Amundi, Šimon)',group:''},
+    {name:'Bydlení',group:''},
+    {name:'Měsíční útrata',group:''},
+    {name:'Pojištění',group:''},
+    {name:'Služby - telefon',group:''},
+    {name:'Služby - televize, auto, radio',group:''},
+  ],
+  // groups: array of strings
+  groups: [],
+  baseExpenses: [
+    {name:'GOOGLE',amount:79,day:5,cat:'Služby - televize, auto, radio'},
+    {name:'Rozhlas',amount:55,day:10,cat:'Služby - televize, auto, radio'},
+    {name:'Televize',amount:150,day:10,cat:'Služby - televize, auto, radio'},
+    {name:'Bydlení - Hypotéka',amount:30000,day:15,cat:'Bydlení'},
+    {name:'YouTube',amount:98,day:15,cat:'Služby - televize, auto, radio'},
+    {name:'Netflix',amount:204,day:15,cat:'Služby - televize, auto, radio'},
+    {name:'Šimon - Školné',amount:500,day:15,cat:'Náklady bez bydlení'},
+    {name:'Šimonek - MBANK spořící účet',amount:1300,day:16,cat:'Úspory (Amundi, Šimon)'},
+    {name:'Šimonek - Rentea',amount:600,day:16,cat:'Úspory (Amundi, Šimon)'},
+    {name:'Šimonek - Partners 7 Stars',amount:600,day:16,cat:'Úspory (Amundi, Šimon)'},
+    {name:'MBANK - ala Amundi',amount:3500,day:16,cat:'Úspory (Amundi, Šimon)'},
+    {name:'Tomáš - Partners 7 Stars',amount:1000,day:16,cat:'Úspory (Amundi, Šimon)'},
+    {name:'Tomáš - Double Speed',amount:500,day:16,cat:'Úspory (Amundi, Šimon)'},
+    {name:'Unicredit + vedení účtu - Moje měsíční útrata',amount:5200,day:16,cat:'Měsíční útrata'},
+    {name:'Průběžný nákup + holič + dárky (rezerva)',amount:3000,day:17,cat:'Náklady průběžné - Nákup, Holič, Dárky'},
+    {name:'HBO',amount:249,day:18,cat:'Služby - televize, auto, radio'},
+    {name:'Vodafone',amount:1601,day:18,cat:'Služby - telefon'},
+    {name:'DPS - Rentea TLO',amount:1000,day:20,cat:'Úspory (Amundi, Šimon)'},
+    {name:'Šimon Nutrilon',amount:1500,day:20,cat:'Náklady průběžné - Káva, Kuře, Nutrilon'},
+    {name:'Pojištění - Simplea - TLO',amount:2245,day:24,cat:'Pojištění'},
+    {name:'Blue Link',amount:249,day:24,cat:'Služby - televize, auto, radio'},
+    {name:'Pojištění - UNIQUA Kačka + děcka',amount:3000,day:25,cat:'Pojištění'},
+    {name:'Kuřata',amount:1500,day:25,cat:'Náklady průběžné - Káva, Kuře, Nutrilon'},
+    {name:'Káva',amount:1000,day:25,cat:'Náklady průběžné - Káva, Kuře, Nutrilon'},
+    {name:'Pojištění - Alianz - TLO',amount:796,day:26,cat:'Pojištění'},
+    {name:'Pojištění - AXA - TLO',amount:746,day:27,cat:'Pojištění'},
+    {name:'Spotify',amount:249,day:28,cat:'Služby - televize, auto, radio'},
+  ],
+  extraExpenses: [],
+  savings: [
+    {name:'Partnres 7Stars TLO',amount:1000,date:'2026-04-30',liq:2},
+    {name:'Partners Double Speed TLO',amount:500,date:'2026-04-30',liq:2},
+    {name:'eMax plus 1 - Staré úspory',amount:3.91,date:'2026-04-30',liq:1},
+    {name:'eMax plus 2 - Nové úspory',amount:5800,date:'2026-04-30',liq:1},
+    {name:'eMax plus 3 - Amundi',amount:3500,date:'2026-04-30',liq:1},
+    {name:'eMax plus 4 Šimonek',amount:57391,date:'2026-04-30',liq:1},
+    {name:'Unicredit Spořící',amount:1681,date:'2026-04-30',liq:0},
+    {name:'Partners 7Stars ŠLO',amount:600,date:'2026-04-30',liq:2},
+    {name:'Rentea TLO',amount:210172,date:'2026-01-23',liq:2},
+    {name:'Rentea Šimon',amount:600,date:'2026-04-30',liq:2},
+    {name:'Uniqua - životko',amount:75182,date:'2023-10-23',liq:2},
+  ],
+  gold: [
+    {type:'Cihlička',weight:5,buy:7442,rate:1560},
+    {type:'Mince',weight:4,buy:5945.12,rate:1560},
+    {type:'Cihlička',weight:5,buy:7484,rate:1560},
+    {type:'Cihlička',weight:1,buy:1702.67,rate:1560},
+    {type:'Cihlička',weight:1,buy:1702.67,rate:1560},
+    {type:'Cihlička',weight:1,buy:1870.23,rate:1560},
+    {type:'Cihlička',weight:2,buy:3611,rate:1560},
+    {type:'Cihlička',weight:2,buy:3510.51,rate:1560},
+    {type:'Cihlička',weight:1,buy:1849,rate:1560},
+    {type:'Cihlička',weight:1,buy:1814,rate:1560},
+    {type:'Cihlička',weight:1,buy:1776,rate:1560},
+    {type:'Cihlička',weight:2.5,buy:4090,rate:1560},
+    {type:'Cihlička',weight:10,buy:16272.86,rate:1560},
+  ]
+};
+
+function ls(k,d){try{const v=localStorage.getItem(k);return v!==null?JSON.parse(v):d}catch{return d}}
+function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}
+
+function initData(){
+  if(!localStorage.getItem('ft_init_v5')){
+    // Migrate from v4 if present
+    const oldInit = localStorage.getItem('ft_init_v4');
+    if(oldInit){
+      // carry over live data, upgrade categories format
+      const oldCats = ls('categories',[]);
+      const newCats = Array.isArray(oldCats) && oldCats.length>0
+        ? oldCats.map(c => typeof c==='string' ? {name:c,group:''} : c)
+        : DEFAULTS.categories;
+      lsSet('categories', newCats);
+      lsSet('groups', DEFAULTS.groups);
+      // keep all other keys as-is
+    } else {
+      lsSet('salary',DEFAULTS.salary);
+      lsSet('balanceSavings',DEFAULTS.balanceSavings);
+      lsSet('categories',DEFAULTS.categories);
+      lsSet('groups',DEFAULTS.groups);
+      lsSet('baseExpenses',DEFAULTS.baseExpenses);
+      lsSet('extraExpenses',DEFAULTS.extraExpenses);
+      lsSet('savings',DEFAULTS.savings);
+      lsSet('gold',DEFAULTS.gold);
+    }
+    lsSet('ft_init_v5',true);
+  }
+}
+initData();
+
+let salary = ls('salary',DEFAULTS.salary);
+let balanceSavings = ls('balanceSavings',0);
+let payDay = ls('payDay',15); // výplatní den
+let paymentStatus = ls('paymentStatus',{}); // {key: {paid, corrAmount}}
+// categories: [{name, group}]
+let categories = ls('categories',DEFAULTS.categories).map(c=>typeof c==='string'?{name:c,group:''}:c);
+let groups = ls('groups',DEFAULTS.groups); // string[]
+let baseExpenses = ls('baseExpenses',DEFAULTS.baseExpenses).map(normFixed);
+let extraExpenses = ls('extraExpenses',[]);
+let savings = ls('savings',DEFAULTS.savings);
+let gold = ls('gold',DEFAULTS.gold);
+
+let chartInst=null, catChartInst=null, groupChartInst=null;
+let editingExpIdx=null, editingFixedIdx=null, editingSavingIdx=null;
+
+// PAYMENT FREQUENCY (typy plateb)
+const FREQ_LABELS={monthly:'Měsíčně',quarterly:'Kvartálně',semiannual:'Pololetně',annual:'Ročně'};
+const FREQ_DIVISOR={monthly:1,quarterly:3,semiannual:6,annual:12};
+const MONTH_NAMES=['Leden','Únor','Březen','Duben','Květen','Červen','Červenec','Srpen','Září','Říjen','Listopad','Prosinec'];
+function normFixed(e){return {name:e.name,amount:e.amount,day:e.day,cat:e.cat,freq:e.freq||'monthly',dueMonth:e.dueMonth||(new Date().getMonth()+1)}}
+function monthSelectHTML(id,selected){return '<select id="'+id+'">'+MONTH_NAMES.map((m,i)=>`<option value="${i+1}" ${Number(selected)===i+1?'selected':''}>${m}</option>`).join('')+'</select>'}
+// renders a frequency <select> plus an (initially hidden unless non-monthly) due-month <select>
+function freqFieldsHTML(baseId,freq,dueMonth){
+  freq=freq||'monthly';
+  const freqSel='<select id="'+baseId+'" onchange="toggleDueMonthVisibility(\''+baseId+'\')">'+Object.entries(FREQ_LABELS).map(([k,l])=>`<option value="${k}" ${freq===k?'selected':''}>${l}</option>`).join('')+'</select>';
+  const dmSel=monthSelectHTML(baseId+'_dmwrap_sel',dueMonth||(new Date().getMonth()+1));
+  const dmWrap=`<div class="form-group" id="${baseId}_dmwrap" style="display:${freq==='monthly'?'none':'flex'}"><label>Splatný měsíc</label>${dmSel}</div>`;
+  return {freqSel,dmWrap};
+}
+function toggleDueMonthVisibility(freqId){
+  const freqEl=document.getElementById(freqId);
+  const wrap=document.getElementById(freqId+'_dmwrap');
+  if(!freqEl||!wrap)return;
+  wrap.style.display=freqEl.value==='monthly'?'none':'flex';
+}
+// is a fixed expense due in a given calendar month, given its freq + anchor dueMonth
+function isDueInMonth(e,monthNum){
+  if(!e.freq||e.freq==='monthly')return true;
+  const div=FREQ_DIVISOR[e.freq]||1;
+  const dm=e.dueMonth||1;
+  let diff=(monthNum-dm)%div;
+  if(diff<0)diff+=div;
+  return diff===0;
+}
+
+const LIQ_LABELS=['⚡ Okamžitá likvidita','📅 Střednědobá likvidita','🔒 Dlouhá likvidita'];
+const LIQ_CLASS=['liq-0','liq-1','liq-2'];
+const LIQ_TCLS=['liq-0-title','liq-1-title','liq-2-title'];
+const CHART_COLORS=['#b06aff','#4f8fff','#00e5a0','#f7c948','#ff4f6a','#ff7f40','#26d0ce','#e040fb','#69f0ae','#ffcc02'];
+const GROUP_COLORS=['#ff7f40','#4f8fff','#00e5a0','#b06aff','#f7c948','#ff4f6a','#26d0ce','#e040fb'];
+
+// ============================================================
+// TABS
+// ============================================================
+function showTab(t){
+  document.querySelectorAll('.container').forEach(c=>c.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  document.getElementById(t).classList.add('active');
+  document.getElementById('tab-'+t).classList.add('active');
+}
+
+// ============================================================
+// HEADER
+// ============================================================
+function updateHeader(){
+  const now=new Date();
+  const M=['Leden','Únor','Březen','Duben','Květen','Červen','Červenec','Srpen','Září','Říjen','Listopad','Prosinec'];
+  document.getElementById('headerMonth').textContent=M[now.getMonth()]+' '+now.getFullYear();
+}
+
+// ============================================================
+// SALARY
+// ============================================================
+function saveSalary(){
+  const v=Number(document.getElementById('salaryInput').value);
+  if(!v)return;
+  salary=v;lsSet('salary',salary);
+  const pd=Number(document.getElementById('payDayInput').value)||15;
+  payDay=pd;lsSet('payDay',payDay);
+  render();
+}
+function resetMonth(){if(!confirm('Opravdu začít nový měsíc? Variabilní výdaje budou smazány.'))return;extraExpenses=[];lsSet('extraExpenses',extraExpenses);render()}
+function saveBalanceSavings(){const v=Number(document.getElementById('balanceSavingsInput').value)||0;balanceSavings=v;lsSet('balanceSavings',balanceSavings);render()}
+
+// ============================================================
+// PAYMENT STATUS (zaplaceno / korekce)
+// ============================================================
+function expKey(type,idx){return type+'_'+idx}
+function togglePaid(type,idx){
+  const k=expKey(type,idx);
+  const cur=paymentStatus[k]||{paid:false,corrAmount:''};
+  paymentStatus[k]={...cur,paid:!cur.paid};
+  lsSet('paymentStatus',paymentStatus);render();
+}
+function saveCorrAmount(type,idx){
+  const k=expKey(type,idx);
+  const el=document.getElementById('corr_'+k);
+  if(!el)return;
+  const v=el.value.trim();
+  const cur=paymentStatus[k]||{paid:false,corrAmount:''};
+  paymentStatus[k]={...cur,corrAmount:v};
+  lsSet('paymentStatus',paymentStatus);render();
+}
+// sort key: map day to position in payroll cycle starting from payDay
+function cyclePos(day){
+  if(!day)return 999;
+  return day>=payDay ? day-payDay : day+100-payDay;
+}
+
+// ============================================================
+// GROUPS
+// ============================================================
+function addGroup(){
+  const name=document.getElementById('groupName').value.trim();
+  if(!name||groups.includes(name))return;
+  groups.push(name);lsSet('groups',groups);
+  document.getElementById('groupName').value='';
+  render();
+}
+function deleteGroup(name){
+  groups=groups.filter(g=>g!==name);
+  categories=categories.map(c=>c.group===name?{...c,group:''}:c);
+  lsSet('groups',groups);lsSet('categories',categories);
+  render();
+}
+function editGroupOnCat(catName){
+  // inline — show prompt-style  via a small modal is overkill; we use render with an editCatGroup flag
+  editingCatGroup=catName;render();
+}
+function saveGroupOnCat(catName){
+  const sel=document.getElementById('cgSel_'+catName.replace(/\W/g,'_'));
+  if(!sel)return;
+  categories=categories.map(c=>c.name===catName?{...c,group:sel.value}:c);
+  lsSet('categories',categories);editingCatGroup=null;render();
+}
+let editingCatGroup=null;
+
+// ============================================================
+// CATEGORIES
+// ============================================================
+function addCategory(){
+  const name=document.getElementById('catName').value.trim();
+  const group=document.getElementById('catGroupSel').value;
+  if(!name||categories.find(c=>c.name===name))return;
+  categories.push({name,group});lsSet('categories',categories);
+  document.getElementById('catName').value='';
+  render();
+}
+function deleteCategory(name){
+  categories=categories.filter(c=>c.name!==name);
+  baseExpenses=baseExpenses.map(e=>e.cat===name?{...e,cat:''}:e);
+  extraExpenses=extraExpenses.map(e=>e.cat===name?{...e,cat:''}:e);
+  lsSet('categories',categories);lsSet('baseExpenses',baseExpenses);lsSet('extraExpenses',extraExpenses);
+  render();
+}
+
+// ============================================================
+// EXPENSES
+// ============================================================
+function addExpense(){
+  const name=document.getElementById('expName').value.trim();
+  const amount=Number(document.getElementById('expAmount').value);
+  const day=Number(document.getElementById('expDay').value);
+  const cat=document.getElementById('expCat').value;
+  if(!name||!amount)return;
+  extraExpenses.push({name,amount,day,cat});
+  lsSet('extraExpenses',extraExpenses);
+  ['expName','expAmount','expDay'].forEach(id=>document.getElementById(id).value='');
+  render();
+}
+function deleteExpense(idx){extraExpenses.splice(idx,1);lsSet('extraExpenses',extraExpenses);render()}
+function startEditExpense(idx){editingExpIdx=idx;render()}
+function cancelEditExpense(){editingExpIdx=null;render()}
+function saveEditExpense(idx){
+  const name=document.getElementById('eeN_'+idx).value.trim();
+  const amount=Number(document.getElementById('eeA_'+idx).value);
+  const day=Number(document.getElementById('eeD_'+idx).value);
+  const cat=document.getElementById('eeC_'+idx).value;
+  if(!name||!amount)return;
+  extraExpenses[idx]={name,amount,day,cat};
+  lsSet('extraExpenses',extraExpenses);editingExpIdx=null;render();
+}
+
+// ============================================================
+// FIXED
+// ============================================================
+function addFixed(){
+  const name=document.getElementById('fname').value.trim();
+  const amount=Number(document.getElementById('famount').value);
+  const day=Number(document.getElementById('fday').value);
+  const cat=document.getElementById('fcat').value;
+  const freq=document.getElementById('ffreq').value||'monthly';
+  const dueMonth=Number(document.getElementById('ffreq_dmwrap_sel').value)||(new Date().getMonth()+1);
+  if(!name||!amount)return;
+  baseExpenses.push({name,amount,day,cat,freq,dueMonth});
+  lsSet('baseExpenses',baseExpenses);
+  ['fname','famount','fday'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('ffreq').value='monthly';
+  toggleDueMonthVisibility('ffreq');
+  render();
+}
+function deleteFixed(idx){if(!confirm('Smazat fixní výdaj?'))return;baseExpenses.splice(idx,1);lsSet('baseExpenses',baseExpenses);render()}
+function startEditFixed(idx){editingFixedIdx=idx;render()}
+function cancelEditFixed(){editingFixedIdx=null;render()}
+function saveEditFixed(idx){
+  const name=document.getElementById('efN_'+idx).value.trim();
+  const amount=Number(document.getElementById('efA_'+idx).value);
+  const day=Number(document.getElementById('efD_'+idx).value);
+  const cat=document.getElementById('efC_'+idx).value;
+  const freq=document.getElementById('efFreq_'+idx).value||'monthly';
+  const dueMonth=Number(document.getElementById('efFreq_'+idx+'_dmwrap_sel').value)||(new Date().getMonth()+1);
+  if(!name||!amount)return;
+  baseExpenses[idx]={name,amount,day,cat,freq,dueMonth};
+  lsSet('baseExpenses',baseExpenses);editingFixedIdx=null;render();
+}
+
+// ============================================================
+// SAVINGS
+// ============================================================
+function todayStr(){return new Date().toISOString().split('T')[0]}
+function addSaving(){
+  const name=document.getElementById('sName').value.trim();
+  const amount=Number(document.getElementById('sAmount').value);
+  const date=document.getElementById('sDate').value||todayStr();
+  const liq=Number(document.getElementById('sLiq').value);
+  if(!name||!amount)return;
+  savings.push({name,amount,date,liq});lsSet('savings',savings);
+  ['sName','sAmount','sDate'].forEach(id=>document.getElementById(id).value='');
+  render();
+}
+function deleteSaving(idx){if(!confirm('Smazat záznam úspor?'))return;savings.splice(idx,1);lsSet('savings',savings);render()}
+function startEditSaving(idx){editingSavingIdx=idx;render()}
+function cancelEditSaving(){editingSavingIdx=null;render()}
+function saveEditSaving(idx){
+  const name=document.getElementById('esN_'+idx).value.trim();
+  const amount=Number(document.getElementById('esA_'+idx).value);
+  const date=document.getElementById('esD_'+idx).value||todayStr();
+  const liq=Number(document.getElementById('esL_'+idx).value);
+  if(!name||!amount)return;
+  savings[idx]={name,amount,date,liq};lsSet('savings',savings);editingSavingIdx=null;render();
+}
+
+// ============================================================
+// GOLD
+// ============================================================
+function addGoldItem(){
+  const type=document.getElementById('gType').value;
+  const weight=Number(document.getElementById('gWeight').value);
+  const buy=Number(document.getElementById('gBuy').value);
+  let rate=Number(document.getElementById('gNow').value);
+  if(!type||!weight||!buy)return;
+  if(!rate&&weight>0)rate=Math.round((buy/weight)*100)/100;
+  gold.push({type,weight,buy,rate});lsSet('gold',gold);
+  ['gType','gWeight','gBuy','gNow'].forEach(id=>document.getElementById(id).value='');
+  render();
+}
+function deleteGold(idx){if(!confirm('Smazat záznam zlata?'))return;gold.splice(idx,1);lsSet('gold',gold);render()}
+function applyGoldRate(){
+  const rate=Number(document.getElementById('goldRate').value);
+  if(!rate)return;
+  gold=gold.map(g=>({...g,rate}));lsSet('gold',gold);
+  document.getElementById('goldRateInfo').textContent=`✓ Přepočteno kurzem ${rate} Kč/g`;
+  render();
+}
+
+// ============================================================
+// GOLD PRICE
+// ============================================================
+async function fetchGoldPrice(){
+  document.getElementById('spotStatus').textContent='Načítám…';
+  try{
+    const r=await fetch('https://api.metals.live/v1/spot/gold');
+    if(!r.ok)throw new Error();
+    const d=await r.json();
+    const xauUsd=d[0]?.price||null;
+    if(!xauUsd)throw new Error();
+    const r2=await fetch('https://api.frankfurter.app/latest?from=USD&to=CZK');
+    const d2=await r2.json();
+    const usdCzk=d2?.rates?.CZK||23.0;
+    const pricePerGram=xauUsd/31.1035;
+    const priceCzk=pricePerGram*usdCzk;
+    const buyoutCzk=priceCzk*0.90;
+    document.getElementById('spotUSD').textContent=xauUsd.toFixed(2)+' USD/oz';
+    document.getElementById('spotCZK').textContent=usdCzk.toFixed(2);
+    document.getElementById('spotKcg').textContent=Math.round(buyoutCzk)+' Kč/g';
+    document.getElementById('spotStatus').textContent='✓ Aktuální (cca 90% spotu)';
+    document.getElementById('goldRate').value=Math.round(buyoutCzk);
+  }catch{
+    document.getElementById('spotStatus').textContent='⚠ Nepodařilo se načíst — zadejte ručně';
+    ['spotUSD','spotCZK','spotKcg'].forEach(id=>document.getElementById(id).textContent='—');
+  }
+}
+
+// ============================================================
+// FORMAT HELPERS
+// ============================================================
+function fmt(n){return Number(n).toLocaleString('cs-CZ',{minimumFractionDigits:0,maximumFractionDigits:2})+' Kč'}
+function fmtDate(d){if(!d)return'—';const p=d.split('-');return p[2]+'. '+p[1]+'. '+p[0]}
+function catNames(){return categories.map(c=>c.name)}
+function catSelectHTML(id,selected){
+  let h=`<select id="${id}"><option value="">— bez —</option>`;
+  categories.forEach(c=>{h+=`<option value="${c.name}"${selected===c.name?' selected':''}>${c.name}</option>`});
+  return h+'</select>';
+}
+function groupSelectHTML(id,selected){
+  let h=`<select id="${id}"><option value="">— bez skupiny —</option>`;
+  groups.forEach(g=>{h+=`<option value="${g}"${selected===g?' selected':''}>${g}</option>`});
+  return h+'</select>';
+}
+// map catName -> group
+function catGroupMap(){
+  const m={};
+  categories.forEach(c=>{if(c.group)m[c.name]=c.group});
+  return m;
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+function render(){
+  // --- payroll cycle boundaries (needed to know which non-monthly bills are due this cycle) ---
+  const now=new Date();
+  const pd=payDay;
+  const cycleFrom=new Date(now.getFullYear(),now.getMonth(),pd);
+  if(now.getDate()<pd)cycleFrom.setMonth(cycleFrom.getMonth()-1);
+  const cycleTo=new Date(cycleFrom);
+  cycleTo.setMonth(cycleTo.getMonth()+1);cycleTo.setDate(pd-1);
+  const cycleFromMonth=cycleFrom.getMonth()+1, cycleToMonth=cycleTo.getMonth()+1;
+  // a fixed expense's day tells us whether it falls in the "cycleFrom" calendar month or the "cycleTo" one
+  const monthForExpense=(day)=>(day&&day<pd)?cycleToMonth:cycleFromMonth;
+  const dueThisCycle=(e)=>isDueInMonth(e,monthForExpense(e.day));
+
+  const fixedWithIdx=baseExpenses.map((e,i)=>({...e,idx:i}));
+  const fixedDueWithIdx=fixedWithIdx.filter(dueThisCycle);
+
+  // --- totals ---
+  const totalFixedAll=baseExpenses.reduce((s,e)=>s+e.amount,0); // sum of every configured fixed item, regardless of frequency
+  const totalFixed=fixedDueWithIdx.reduce((s,e)=>s+e.amount,0); // sum of only what's actually due THIS cycle (drives the balance below)
+  const totalFixedAvg=baseExpenses.reduce((s,e)=>s+e.amount/(FREQ_DIVISOR[e.freq||'monthly']||1),0); // amortized monthly budget reference
+  const totalExtra=extraExpenses.reduce((s,e)=>s+e.amount,0);
+  const totalExp=totalFixed+totalExtra;
+  const balance=salary-totalExp;
+  const totalSav=savings.reduce((s,v)=>s+v.amount,0);
+  const totalGoldBuy=gold.reduce((s,g)=>s+g.buy,0);
+  const totalGoldVal=gold.reduce((s,g)=>s+(g.weight*g.rate),0);
+  const totalGoldProfit=totalGoldVal-totalGoldBuy;
+  const totalNet=totalSav+totalGoldVal+balanceSavings;
+
+  // paid/unpaid sums (only fixed items actually due this cycle count towards the money that must move)
+  const allExpForStatus=[
+    ...fixedDueWithIdx.map(e=>({...e,type:'fixed'})),
+    ...extraExpenses.map((e,i)=>({...e,type:'extra',idx:i}))
+  ];
+  let paidSum=0, unpaidSum=0;
+  allExpForStatus.forEach(e=>{
+    const k=expKey(e.type,e.idx);
+    const st=paymentStatus[k]||{};
+    const effAmt=st.corrAmount!==undefined&&st.corrAmount!==''?Number(st.corrAmount):e.amount;
+    if(st.paid) paidSum+=effAmt;
+    else unpaidSum+=e.amount;
+  });
+  const freeBalance=salary-paidSum-unpaidSum;
+
+  // --- populate cat dropdowns ---
+  const catOptHtml=['<option value="">— bez —</option>',...categories.map(c=>`<option value="${c.name}">${c.name}</option>`)].join('');
+  ['expCat','fcat'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=catOptHtml});
+  const catGroupOptHtml=['<option value="">— bez skupiny —</option>',...groups.map(g=>`<option value="${g}">${g}</option>`)].join('');
+  const cgEl=document.getElementById('catGroupSel');if(cgEl)cgEl.innerHTML=catGroupOptHtml;
+  const monthOptHtml=MONTH_NAMES.map((m,i)=>`<option value="${i+1}">${m}</option>`).join('');
+  const addDmSel=document.getElementById('ffreq_dmwrap_sel');
+  if(addDmSel&&!addDmSel.innerHTML)addDmSel.innerHTML=monthOptHtml;
+
+  // --- stats ---
+  document.getElementById('statSalary').textContent=fmt(salary);
+  document.getElementById('statFixed').textContent=fmt(totalFixed);
+  document.getElementById('statFixedAvg').textContent=fmt(totalFixedAvg);
+  document.getElementById('statExtra').textContent=fmt(totalExtra);
+  const balEl=document.getElementById('statBalance');
+  balEl.textContent=fmt(balance);balEl.className='value '+(balance>=0?'positive':'negative');
+  document.getElementById('statPaid').textContent=fmt(paidSum);
+  const unpaidEl=document.getElementById('statUnpaid');
+  unpaidEl.textContent=fmt(unpaidSum);
+  const freeEl=document.getElementById('statFree');
+  freeEl.textContent=fmt(freeBalance);freeEl.className='value '+(freeBalance>=0?'positive':'negative');
+  document.getElementById('statSavings').textContent=fmt(totalSav+balanceSavings);
+  document.getElementById('statGold').textContent=fmt(totalGoldVal);
+  document.getElementById('statNet').textContent=fmt(totalNet);
+  if(salary>0)document.getElementById('salaryInput').value=salary;
+  document.getElementById('payDayInput').value=payDay;
+  // cycle label (cycleFrom/cycleTo already computed at top of render())
+  const fmtD=d=>`${d.getDate()}. ${d.getMonth()+1}. ${d.getFullYear()}`;
+  document.getElementById('cycleLabel').textContent=`Výplatní cyklus: ${fmtD(cycleFrom)} — ${fmtD(cycleTo)}`;
+  document.getElementById('balanceSavingsInput').value=balanceSavings||'';
+  document.getElementById('balanceSavingsShow').textContent=fmt(balanceSavings);
+
+  // --- group sums for dashboard ---
+  const cgMap=catGroupMap();
+  const allExp=[...baseExpenses,...extraExpenses];
+  const groupSums={};
+  groups.forEach(g=>groupSums[g]=0);
+  allExp.forEach(e=>{
+    if(e.cat&&cgMap[e.cat])groupSums[cgMap[e.cat]]=(groupSums[cgMap[e.cat]]||0)+e.amount;
+  });
+  const dashCard=document.getElementById('dashGroupsCard');
+  if(groups.length>0){
+    dashCard.style.display='';
+    document.getElementById('dashGroups').innerHTML=groups.map((g,i)=>`
+      <div class="group-pill">
+        <span class="gpname">${g}</span>
+        <span class="gpamt">${fmt(groupSums[g]||0)}</span>
+      </div>`).join('');
+    // group chart
+    if(groupChartInst)groupChartInst.destroy();
+    const ctx3=document.getElementById('groupChart').getContext('2d');
+    const gLabels=groups.filter(g=>groupSums[g]>0);
+    const gData=gLabels.map(g=>groupSums[g]);
+    if(gData.length>0){
+      groupChartInst=new Chart(ctx3,{
+        type:'bar',
+        data:{labels:gLabels,datasets:[{label:'Kč',data:gData,backgroundColor:GROUP_COLORS.slice(0,gLabels.length),borderRadius:6,borderWidth:0}]},
+        options:{
+          responsive:true,maintainAspectRatio:false,
+          plugins:{legend:{display:false}},
+          scales:{
+            x:{ticks:{color:'#7a7f96',font:{family:'DM Sans',size:11}},grid:{color:'rgba(46,51,72,.4)'}},
+            y:{ticks:{color:'#7a7f96',font:{family:'DM Sans',size:11},callback:v=>v.toLocaleString('cs-CZ')},grid:{color:'rgba(46,51,72,.4)'}}
+          }
+        }
+      });
+    }
+  }else{
+    dashCard.style.display='none';
+    if(groupChartInst){groupChartInst.destroy();groupChartInst=null}
+  }
+
+  // --- all expenses table (sorted by payroll cycle) ---
+  const allWrap=document.getElementById('allExpensesWrap');
+  const fixedM=fixedDueWithIdx.map(e=>({...e,type:'fixed'}));
+  const extraM=extraExpenses.map((e,i)=>({...e,type:'extra',idx:i}));
+  const allItems=[...fixedM,...extraM].sort((a,b)=>cyclePos(a.day)-cyclePos(b.day));
+
+  // split into two periods: from payDay (current month) and 1–(payDay-1) (next calendar month)
+  const period1=allItems.filter(e=>e.day>=payDay||!e.day);
+  const period2=allItems.filter(e=>e.day>0&&e.day<payDay);
+
+  if(allItems.length===0){
+    allWrap.innerHTML='<div class="empty-state">Žádné výdaje</div>';
+  }else{
+    const buildRows=(items)=>{
+      let h='';
+      items.forEach(e=>{
+        const k=expKey(e.type,e.idx);
+        const st=paymentStatus[k]||{};
+        const isPaid=!!st.paid;
+        const corrAmt=st.corrAmount!==undefined&&st.corrAmount!==''?st.corrAmount:'';
+        const effAmt=corrAmt!==''?Number(corrAmt):e.amount;
+        const grp=e.cat&&cgMap[e.cat]?cgMap[e.cat]:'';
+        if(e.type==='extra'&&editingExpIdx===e.idx){
+          h+=`<tr><td colspan="9"><div class="edit-row"><div class="form-row">
+            <div class="form-group" style="flex:3"><label>Název</label><input id="eeN_${e.idx}" type="text" value="${e.name.replace(/"/g,'&quot;')}"/></div>
+            <div class="form-group"><label>Částka</label><input id="eeA_${e.idx}" type="number" value="${e.amount}"/></div>
+            <div class="form-group"><label>Den</label><input id="eeD_${e.idx}" type="number" value="${e.day||''}"/></div>
+            <div class="form-group"><label>Kategorie</label>${catSelectHTML('eeC_'+e.idx,e.cat||'')}</div>
+          </div><div style="display:flex;gap:6px">
+            <button class="btn btn-primary btn-sm" onclick="saveEditExpense(${e.idx})">Uložit</button>
+            <button class="btn btn-ghost btn-sm" onclick="cancelEditExpense()">Zrušit</button>
+          </div></div></td></tr>`;
+        }else{
+          h+=`<tr class="${isPaid?'paid-row':''}">
+            <td><input type="checkbox" class="pay-check" ${isPaid?'checked':''} onchange="togglePaid('${e.type}',${e.idx})"/></td>
+            <td style="color:var(--muted);font-size:.78rem">${e.day||'—'}</td>
+            <td>${e.name}</td>
+            <td><span class="tag ${e.type==='fixed'?'tag-fixed':'tag-extra'}">${e.type==='fixed'?'Fixní':'Variab.'}</span>${e.type==='fixed'&&e.freq&&e.freq!=='monthly'?` <span class="tag tag-freq-${e.freq}">${FREQ_LABELS[e.freq]}</span>`:''}</td>
+            <td>${e.cat?`<span class="tag tag-cat">${e.cat}</span>`:''}</td>
+            <td>${grp?`<span class="tag tag-group">${grp}</span>`:''}</td>
+            <td class="amount-cell amount-neg" style="text-align:right">${fmt(e.amount)}</td>
+            <td style="text-align:right">
+              ${isPaid?`<input class="corr-input" id="corr_${k}" type="number" value="${corrAmt}" placeholder="skut." onchange="saveCorrAmount('${e.type}',${e.idx})"/>`:''}
+              ${isPaid&&corrAmt!==''?`<span style="font-size:.72rem;color:var(--accent);margin-left:3px">${fmt(effAmt)}</span>`:''}
+            </td>
+            <td class="actions-cell">${e.type==='extra'?`<button class="btn btn-warn btn-sm" onclick="startEditExpense(${e.idx})">✏</button><button class="btn btn-danger btn-sm" onclick="deleteExpense(${e.idx})">✕</button>`:''}</td>
+          </tr>`;
+        }
+      });
+      return h;
+    };
+
+    const thead=`<thead><tr><th>✓</th><th>Den</th><th>Název</th><th>Typ</th><th>Kategorie</th><th>Skupina</th><th style="text-align:right">Částka</th><th style="text-align:right">Skutečná</th><th></th></tr></thead>`;
+    let h=`<table class="data-table">${thead}<tbody>`;
+    if(period1.length>0){
+      h+=`<tr><td colspan="9"><span class="period-label">📅 Od ${payDay}. — platby aktuálního měsíce</span></td></tr>`;
+      h+=buildRows(period1);
+    }
+    if(period2.length>0){
+      h+=`<tr><td colspan="9"><span class="period-label">📅 1. – ${payDay-1}. — platby příštího kalendářního měsíce</span></td></tr>`;
+      h+=buildRows(period2);
+    }
+    h+='</tbody></table>';
+    allWrap.innerHTML=h;
+  }
+  document.getElementById('totalExpenses').textContent=fmt(totalExp);
+
+  // --- cat summary pills + chart ---
+  const catMap={};
+  allExp.forEach(e=>{if(e.cat)catMap[e.cat]=(catMap[e.cat]||0)+e.amount});
+  const catSumEl=document.getElementById('catSummary');
+  if(Object.keys(catMap).length>0){
+    catSumEl.innerHTML=Object.entries(catMap).map(([c,a])=>
+      `<div class="cat-pill"><span class="cpname">${c}</span><span class="cpamt">${fmt(a)}</span></div>`
+    ).join('');
+    document.getElementById('catChartWrap').style.display='block';
+    if(catChartInst)catChartInst.destroy();
+    const ctx2=document.getElementById('catChart').getContext('2d');
+    const ck=Object.keys(catMap),cv=Object.values(catMap);
+    catChartInst=new Chart(ctx2,{
+      type:'doughnut',
+      data:{labels:ck,datasets:[{data:cv,backgroundColor:CHART_COLORS.slice(0,ck.length),borderColor:'#1a1d27',borderWidth:3}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#7a7f96',font:{family:'DM Sans',size:11},padding:12}}}}
+    });
+  }else{
+    catSumEl.innerHTML='';
+    document.getElementById('catChartWrap').style.display='none';
+    if(catChartInst){catChartInst.destroy();catChartInst=null}
+  }
+
+  // --- main chart ---
+  if(chartInst)chartInst.destroy();
+  const ctx=document.getElementById('chart').getContext('2d');
+  chartInst=new Chart(ctx,{
+    type:'doughnut',
+    data:{labels:['Zůstatek','Fixní výdaje','Variabilní výdaje'],datasets:[{data:[Math.max(balance,0),totalFixed,totalExtra],backgroundColor:['#00e5a0','#4f8fff','#ff4f6a'],borderColor:'#1a1d27',borderWidth:3}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#7a7f96',font:{family:'DM Sans',size:12},padding:16}}}}
+  });
+
+  // --- fixed table ---
+  const fixedWrap=document.getElementById('fixedWrap');
+  if(baseExpenses.length===0){
+    fixedWrap.innerHTML='<div class="empty-state">Žádné fixní výdaje</div>';
+  }else{
+    let h='<table class="data-table"><thead><tr><th>Den</th><th>Název</th><th>Kategorie</th><th>Skupina</th><th>Frekvence</th><th style="text-align:right">Částka</th><th></th></tr></thead><tbody>';
+    baseExpenses.forEach((e,i)=>{
+      const grp=e.cat&&cgMap[e.cat]?cgMap[e.cat]:'';
+      const freq=e.freq||'monthly';
+      const isDue=dueThisCycle(e);
+      if(editingFixedIdx===i){
+        const ff=freqFieldsHTML('efFreq_'+i,freq,e.dueMonth);
+        h+=`<tr><td colspan="7"><div class="edit-row"><div class="form-row">
+          <div class="form-group" style="flex:3"><label>Název</label><input id="efN_${i}" type="text" value="${e.name.replace(/"/g,'&quot;')}"/></div>
+          <div class="form-group"><label>Částka</label><input id="efA_${i}" type="number" value="${e.amount}"/></div>
+          <div class="form-group"><label>Den</label><input id="efD_${i}" type="number" value="${e.day||''}"/></div>
+          <div class="form-group"><label>Kategorie</label>${catSelectHTML('efC_'+i,e.cat||'')}</div>
+          <div class="form-group"><label>Frekvence</label>${ff.freqSel}</div>
+          ${ff.dmWrap}
+        </div><div style="display:flex;gap:6px">
+          <button class="btn btn-primary btn-sm" onclick="saveEditFixed(${i})">Uložit</button>
+          <button class="btn btn-ghost btn-sm" onclick="cancelEditFixed()">Zrušit</button>
+        </div></div></td></tr>`;
+      }else{
+        h+=`<tr class="${isDue?'':'not-due-row'}">
+          <td style="color:var(--muted);font-size:.78rem">${e.day||'—'}</td>
+          <td>${e.name}</td>
+          <td>${e.cat?`<span class="tag tag-cat">${e.cat}</span>`:''}</td>
+          <td>${grp?`<span class="tag tag-group">${grp}</span>`:''}</td>
+          <td>${freq==='monthly'?`<span style="font-size:.72rem;color:var(--muted)">Měsíčně</span>`:`<span class="tag tag-freq-${freq}">${FREQ_LABELS[freq]} · ${MONTH_NAMES[(e.dueMonth||1)-1]}</span>`}</td>
+          <td class="amount-cell amount-neg" style="text-align:right">${fmt(e.amount)}</td>
+          <td class="actions-cell">
+            <button class="btn btn-warn btn-sm" onclick="startEditFixed(${i})">✏</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteFixed(${i})">✕</button>
+          </td>
+        </tr>`;
+      }
+    });
+    h+='</tbody></table>';
+    fixedWrap.innerHTML=h;
+  }
+  document.getElementById('totalFixed').textContent=fmt(totalFixedAll);
+  document.getElementById('totalFixedDue').textContent=fmt(totalFixed);
+  document.getElementById('totalFixedAvg').textContent=fmt(totalFixedAvg);
+
+  // --- savings ---
+  const savingsWrap=document.getElementById('savingsWrap');
+  const liqTotals=[0,0,0];
+  savings.forEach(s=>{liqTotals[s.liq||0]+=s.amount});
+  let savH='';
+  [0,1,2].forEach(liq=>{
+    const group=savings.map((s,i)=>({...s,i})).filter(s=>(s.liq||0)===liq);
+    savH+=`<div class="liq-section-title ${LIQ_TCLS[liq]}"><span>${LIQ_LABELS[liq]}</span><span class="liq-total">${fmt(liqTotals[liq])}</span></div>`;
+    if(group.length===0){savH+=`<div style="color:var(--muted);font-size:.8rem;padding:6px 0 10px">Žádné záznamy</div>`}
+    else group.forEach(s=>{
+      if(editingSavingIdx===s.i){
+        savH+=`<div class="edit-row"><div class="form-row">
+          <div class="form-group" style="flex:3"><label>Název</label><input id="esN_${s.i}" type="text" value="${s.name.replace(/"/g,'&quot;')}"/></div>
+          <div class="form-group"><label>Částka (Kč)</label><input id="esA_${s.i}" type="number" value="${s.amount}"/></div>
+          <div class="form-group"><label>Datum</label><input id="esD_${s.i}" type="date" value="${s.date||''}"/></div>
+          <div class="form-group"><label>Likvidita</label>
+            <select id="esL_${s.i}">
+              <option value="0"${(s.liq||0)===0?' selected':''}>⚡ Okamžitá</option>
+              <option value="1"${(s.liq||0)===1?' selected':''}>📅 Střednědobá</option>
+              <option value="2"${(s.liq||0)===2?' selected':''}>🔒 Dlouhá</option>
+            </select>
+          </div>
+        </div><div style="display:flex;gap:6px">
+          <button class="btn btn-primary btn-sm" onclick="saveEditSaving(${s.i})">Uložit</button>
+          <button class="btn btn-ghost btn-sm" onclick="cancelEditSaving()">Zrušit</button>
+        </div></div>`;
+      }else{
+        savH+=`<div class="savings-item">
+          <div class="savings-info">
+            <div class="sname">${s.name}</div>
+            <div class="smeta"><span>Akt: ${fmtDate(s.date)}</span><span class="liq-badge ${LIQ_CLASS[s.liq||0]}">${['Okamžitá','Střednědobá','Dlouhá'][s.liq||0]}</span></div>
+          </div>
+          <div class="savings-amount">${fmt(s.amount)}</div>
+          <div class="actions-cell" style="margin-left:8px">
+            <button class="btn btn-warn btn-sm" onclick="startEditSaving(${s.i})">✏</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteSaving(${s.i})">✕</button>
+          </div>
+        </div>`;
+      }
+    });
+  });
+  savingsWrap.innerHTML=savH;
+  document.getElementById('totalSavLiq0').textContent=fmt(liqTotals[0]);
+  document.getElementById('totalSavLiq1').textContent=fmt(liqTotals[1]);
+  document.getElementById('totalSavLiq2').textContent=fmt(liqTotals[2]);
+  document.getElementById('totalSavings').textContent=fmt(totalSav+balanceSavings);
+
+  // --- gold ---
+  const goldWrap=document.getElementById('goldWrap');
+  if(gold.length===0){goldWrap.innerHTML='<div class="empty-state">Žádné záznamy</div>'}
+  else{
+    let h='<table class="data-table"><thead><tr><th>Typ</th><th>Váha</th><th style="text-align:right">Kurz nákup</th><th style="text-align:right">Kurz akt.</th><th style="text-align:right">Nák. cena</th><th style="text-align:right">Akt. hodnota</th><th style="text-align:right">Zisk/Ztráta</th><th></th></tr></thead><tbody>';
+    gold.forEach((g,i)=>{
+      const value=g.weight*g.rate;
+      const profit=value-g.buy;
+      const buyRate=g.weight>0?Math.round((g.buy/g.weight)*100)/100:0;
+      h+=`<tr>
+        <td><strong>${g.type}</strong></td>
+        <td style="color:var(--muted)">${g.weight} g</td>
+        <td class="amount-cell" style="text-align:right;color:var(--muted)">${buyRate.toLocaleString('cs-CZ')}</td>
+        <td class="amount-cell" style="text-align:right;color:var(--accent2)">${g.rate.toLocaleString('cs-CZ')}</td>
+        <td class="amount-cell amount-neg" style="text-align:right">${fmt(g.buy)}</td>
+        <td class="amount-cell amount-gold" style="text-align:right">${fmt(value)}</td>
+        <td style="text-align:right"><span class="${profit>=0?'profit-pos':'profit-neg'}">${profit>=0?'+':''}${fmt(profit)}</span></td>
+        <td class="actions-cell"><button class="btn btn-danger btn-sm" onclick="deleteGold(${i})">✕</button></td>
+      </tr>`;
+    });
+    h+='</tbody></table>';
+    goldWrap.innerHTML=h;
+  }
+  document.getElementById('goldTotalBuy').textContent=fmt(totalGoldBuy);
+  document.getElementById('goldTotal').textContent=fmt(totalGoldVal);
+  const profEl=document.getElementById('goldProfit');
+  profEl.textContent=(totalGoldProfit>=0?'+':'')+fmt(totalGoldProfit);
+  profEl.className='value '+(totalGoldProfit>=0?'amount-pos':'amount-neg');
+
+  // --- categories tab ---
+  // Groups management
+  const groupManage=document.getElementById('groupManageList');
+  groupManage.innerHTML=groups.length===0
+    ?'<span style="color:var(--muted);font-size:.82rem">Zatím žádné skupiny</span>'
+    :groups.map(g=>`<div class="group-chip">${g}<button onclick="deleteGroup('${g.replace(/'/g,"\\'")}')">✕</button></div>`).join('');
+
+  // Categories management list (with group badge + edit)
+  const catManage=document.getElementById('catManageList');
+  if(categories.length===0){
+    catManage.innerHTML='<span style="color:var(--muted);font-size:.82rem">Zatím žádné kategorie</span>';
+  }else{
+    let ch='<table class="data-table"><thead><tr><th>Kategorie</th><th>Skupina</th><th></th></tr></thead><tbody>';
+    categories.forEach(c=>{
+      const safeId=c.name.replace(/\W/g,'_');
+      if(editingCatGroup===c.name){
+        ch+=`<tr>
+          <td>${c.name}</td>
+          <td colspan="2">
+            ${groupSelectHTML('cgSel_'+safeId,c.group||'')}
+            <div style="display:flex;gap:5px;margin-top:5px">
+              <button class="btn btn-primary btn-sm" onclick="saveGroupOnCat('${c.name.replace(/'/g,"\\'")}')">Uložit</button>
+              <button class="btn btn-ghost btn-sm" onclick="editingCatGroup=null;render()">Zrušit</button>
+            </div>
+          </td>
+        </tr>`;
+      }else{
+        ch+=`<tr>
+          <td><span class="tag tag-cat">${c.name}</span></td>
+          <td>${c.group?`<span class="tag tag-group">${c.group}</span>`:'<span style="color:var(--muted);font-size:.78rem">—</span>'}</td>
+          <td class="actions-cell">
+            <button class="btn btn-warn btn-sm" onclick="editGroupOnCat('${c.name.replace(/'/g,"\\'")}')">✏ Skupina</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteCategory('${c.name.replace(/'/g,"\\'")}')">✕</button>
+          </td>
+        </tr>`;
+      }
+    });
+    ch+='</tbody></table>';
+    catManage.innerHTML=ch;
+  }
+
+  // Cat breakdown: skupiny first, then ungrouped cats
+  const catBreakdown=document.getElementById('catBreakdown');
+  const catBreakMap={};
+  allExp.forEach(e=>{if(e.cat)catBreakMap[e.cat]=(catBreakMap[e.cat]||[]).concat(e)});
+
+  if(Object.keys(catBreakMap).length===0){
+    catBreakdown.innerHTML='<div class="empty-state">Žádné kategorizované výdaje</div>';
+  }else{
+    let bd='';
+    // Grouped sections
+    groups.forEach((g,gi)=>{
+      const catsInGroup=categories.filter(c=>c.group===g).map(c=>c.name);
+      const hasData=catsInGroup.some(cn=>catBreakMap[cn]);
+      if(!hasData)return;
+      const groupTotal=catsInGroup.reduce((s,cn)=>{
+        const items=catBreakMap[cn]||[];
+        return s+items.reduce((ss,e)=>ss+e.amount,0);
+      },0);
+      bd+=`<div class="group-section">
+        <div class="group-section-title">
+          <span class="gtname">📦 ${g}</span>
+          <span class="gtamt">${fmt(groupTotal)}</span>
+        </div>`;
+      catsInGroup.forEach(cn=>{
+        const items=catBreakMap[cn];
+        if(!items||!items.length)return;
+        const tot=items.reduce((s,e)=>s+e.amount,0);
+        bd+=`<div style="margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+            <span class="tag tag-cat">${cn}</span>
+            <span class="amount-cell amount-neg">${fmt(tot)}</span>
+          </div>
+          <table class="data-table"><tbody>`;
+        items.forEach(e=>{bd+=`<tr><td style="color:var(--muted);font-size:.78rem">${e.day||'—'}</td><td>${e.name}</td><td class="amount-cell amount-neg" style="text-align:right">${fmt(e.amount)}</td></tr>`});
+        bd+='</tbody></table></div>';
+      });
+      bd+='</div>';
+    });
+
+    // Ungrouped categories
+    const groupedCatNames=new Set(categories.filter(c=>c.group).map(c=>c.name));
+    const ungrouped=Object.keys(catBreakMap).filter(cn=>!groupedCatNames.has(cn));
+    if(ungrouped.length>0){
+      if(groups.length>0)bd+=`<div style="font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin:12px 0 8px">Bez skupiny</div>`;
+      ungrouped.forEach(cn=>{
+        const items=catBreakMap[cn];
+        const tot=items.reduce((s,e)=>s+e.amount,0);
+        bd+=`<div style="margin-bottom:12px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+            <span class="tag tag-cat">${cn}</span>
+            <span class="amount-cell amount-neg">${fmt(tot)}</span>
+          </div>
+          <table class="data-table"><tbody>`;
+        items.forEach(e=>{bd+=`<tr><td style="color:var(--muted);font-size:.78rem">${e.day||'—'}</td><td>${e.name}</td><td class="amount-cell amount-neg" style="text-align:right">${fmt(e.amount)}</td></tr>`});
+        bd+='</tbody></table></div>';
+      });
+    }
+    catBreakdown.innerHTML=bd;
+  }
+}
+
+// ============================================================
+// THEME
+// ============================================================
+let isDark=ls('ftTheme','dark')!=='light';
+function applyTheme(){
+  document.body.classList.toggle('light',!isDark);
+  document.getElementById('thDark').classList.toggle('active',isDark);
+  document.getElementById('thLight').classList.toggle('active',!isDark);
+}
+function toggleTheme(){isDark=!isDark;lsSet('ftTheme',isDark?'dark':'light');applyTheme();render()}
+
+// ============================================================
+// EXPORT / IMPORT
+// ============================================================
+function exportData(){
+  const now=new Date();
+  const pad=n=>String(n).padStart(2,'0');
+  const dateStr=`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
+  const dateHuman=`${pad(now.getDate())}.${pad(now.getMonth()+1)}.${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  // hlavička s datem (ISO i čitelně) — umožňuje dělat historii exportů podle data v souboru i v názvu
+  const data={
+    _app:'finance-tracker',
+    _version:5,
+    _exportedAt:now.toISOString(),
+    _exportedDate:dateHuman,
+    salary,balanceSavings,payDay,paymentStatus,categories,groups,
+    baseExpenses,extraExpenses,savings,gold
+  };
+  // .txt místo .json — čistě kvůli nahrávání do Disku/Keep apod., obsah zůstává JSON
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'text/plain'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;
+  a.download=`finance_tracker_${dateStr}.txt`;
+  a.click();URL.revokeObjectURL(url);
+  showIoMsg('✓ Exportováno ('+dateStr+')','ok');
+}
+function importData(ev){
+  const file=ev.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const data=JSON.parse(e.target.result);
+      if(typeof data.salary==='undefined')throw new Error('Neplatný soubor (chybí pole "salary")');
+      if(data.salary!==undefined){salary=data.salary;lsSet('salary',salary)}
+      if(data.balanceSavings!==undefined){balanceSavings=data.balanceSavings;lsSet('balanceSavings',balanceSavings)}
+      if(data.payDay!==undefined){payDay=data.payDay;lsSet('payDay',payDay)}
+      if(data.paymentStatus){paymentStatus=data.paymentStatus;lsSet('paymentStatus',paymentStatus)}
+      if(data.categories){categories=data.categories.map(c=>typeof c==='string'?{name:c,group:''}:c);lsSet('categories',categories)}
+      if(data.groups){groups=data.groups;lsSet('groups',groups)}
+      if(data.baseExpenses){baseExpenses=data.baseExpenses.map(normFixed);lsSet('baseExpenses',baseExpenses)}
+      if(data.extraExpenses){extraExpenses=data.extraExpenses;lsSet('extraExpenses',extraExpenses)}
+      if(data.savings){savings=data.savings;lsSet('savings',savings)}
+      if(data.gold){gold=data.gold;lsSet('gold',gold)}
+      lsSet('ft_init_v5',true);render();
+      showIoMsg('✓ Importováno — data načtena','ok');
+    }catch(err){showIoMsg('✗ Chyba: '+err.message,'err')}
+    ev.target.value='';
+  };
+  reader.readAsText(file);
+}
+function showIoMsg(text,type){
+  const el=document.getElementById('ioMsg');
+  el.textContent=text;el.className='io-msg '+type;el.style.display='inline-block';
+  setTimeout(()=>{el.style.display='none'},4000);
+}
+
+// ============================================================
+// INIT
+// ============================================================
+updateHeader();
+applyTheme();
+render();
+fetchGoldPrice();
+
+// ============================================================
+// PWA — registrace service workeru
+// ============================================================
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('./service-worker.js').catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>
