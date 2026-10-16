@@ -1278,7 +1278,7 @@ function toggleTheme(){isDark=!isDark;lsSet('ftTheme',isDark?'dark':'light');app
 // ============================================================
 // EXPORT / IMPORT
 // ============================================================
-function exportData(){
+async function exportData(){
   const now=new Date();
   const pad=n=>String(n).padStart(2,'0');
   const dateStr=`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
@@ -1293,10 +1293,28 @@ function exportData(){
     baseExpenses,extraExpenses,savings,gold
   };
   // .txt místo .json — čistě kvůli nahrávání do Disku/Keep apod., obsah zůstává JSON
-  const blob=new Blob([JSON.stringify(data,null,2)],{type:'text/plain'});
-  const url=URL.createObjectURL(blob);
+  const filename=`finance_tracker_${dateStr}.txt`;
+  const text=JSON.stringify(data,null,2);
+  const file=new File([text],filename,{type:'text/plain'});
+
+  // Na mobilu (Android/Chrome) zkusit nativní sdílecí dialog — tam je "Uložit na Disk"
+  // rovnou jako jedna z možností. Na desktopu/starších prohlížečích to Web Share API
+  // s přílohou nepodporuje, tak to prostě spadne do klasického stažení souboru níž.
+  if(navigator.canShare && navigator.canShare({files:[file]})){
+    try{
+      await navigator.share({files:[file],title:filename,text:'Finance Tracker — export dat'});
+      showIoMsg('✓ Exportováno ('+dateStr+')','ok');
+      return;
+    }catch(err){
+      // uživatel dialog zavřel/zrušil — nepovažujeme za chybu, prostě nic nestahujeme
+      if(err && err.name==='AbortError')return;
+      // jiná chyba → spadni do klasického stažení níž
+    }
+  }
+
+  const url=URL.createObjectURL(file);
   const a=document.createElement('a');a.href=url;
-  a.download=`finance_tracker_${dateStr}.txt`;
+  a.download=filename;
   a.click();URL.revokeObjectURL(url);
   showIoMsg('✓ Exportováno ('+dateStr+')','ok');
 }
