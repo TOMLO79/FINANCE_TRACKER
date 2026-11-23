@@ -138,6 +138,38 @@ select option{background:var(--surface)}
 .group-section-title .gtname{font-size:.78rem;font-weight:700;color:var(--orange)}
 .group-section-title .gtamt{font-family:'Space Mono',monospace;font-size:.9rem;color:var(--red);font-weight:700}
 .dash-groups{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+/* ===== SIMULACE (co kdyby) ===== */
+.sim-intro{font-size:.84rem;color:var(--muted);line-height:1.5;margin-bottom:12px}
+.sim-banner{background:rgba(247,201,72,.1);border:1px solid var(--accent2);color:var(--accent2);border-radius:10px;padding:8px 12px;font-size:.76rem;margin-bottom:12px;line-height:1.45}
+.sim-sticky{position:sticky;top:0;z-index:5;background:var(--surface);border:1px solid var(--accent);border-radius:12px;padding:9px 12px;margin-bottom:12px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+.sim-sticky .ss-l{font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:2px}
+.sim-sticky .ss-v{font-family:'Space Mono',monospace;font-weight:700;font-size:.82rem;white-space:nowrap}
+.sim-sticky .ss-t{grid-column:1/-1;font-size:.62rem;color:var(--muted);letter-spacing:.8px;text-transform:uppercase}
+.sim-cmp{width:100%;border-collapse:collapse}
+.sim-cmp th{font-size:.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;padding:4px 3px;border-bottom:1px solid var(--border);text-align:right}
+.sim-cmp th:first-child{text-align:left}
+.sim-cmp td{padding:7px 3px;font-size:.76rem;border-bottom:1px solid rgba(46,51,72,.5);vertical-align:middle}
+.sim-cmp td.n{text-align:right;font-family:'Space Mono',monospace;white-space:nowrap;font-size:.72rem}
+.sim-cmp tr.strong td{font-weight:700;background:rgba(0,229,160,.07)}
+.sim-cmp tr.sub td{font-weight:600}
+.sim-cmp tr:last-child td{border-bottom:none}
+.d-good{color:var(--accent)}.d-bad{color:var(--red)}.d-zero{color:var(--muted)}
+.sim-sub{font-family:'Space Mono',monospace;font-size:.66rem;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin:14px 0 4px}
+.sim-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid rgba(46,51,72,.5)}
+.sim-row:last-child{border-bottom:none}
+.sim-row .sim-name{flex:1;min-width:0}
+.sim-row .sn{font-size:.85rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sim-row .sm{font-size:.68rem;color:var(--muted);line-height:1.35}
+.sim-row .sim-in{width:92px;flex:none;text-align:right;font-family:'Space Mono',monospace;padding:6px 8px}
+.sim-row.chg{background:rgba(247,201,72,.08);border-left:3px solid var(--accent2);padding-left:6px}
+.sim-row.off .sn{text-decoration:line-through;opacity:.5}
+.sim-row.off .sim-in{opacity:.4}
+.sim-row.notdue .sn{opacity:.6}
+.sim-off{display:flex;flex-direction:column;align-items:center;font-size:.58rem;color:var(--muted);gap:2px;cursor:pointer;text-transform:uppercase;letter-spacing:.4px;flex:none}
+.sim-off input{width:16px;height:16px;accent-color:var(--red);cursor:pointer}
+.sim-tag{display:inline-block;padding:0 6px;border-radius:8px;font-size:.62rem;background:var(--surface2);color:var(--muted);margin-left:4px}
+.sim-actions{display:flex;gap:6px;flex-wrap:wrap}
+details.sim-det summary{cursor:pointer;font-size:.78rem;color:var(--accent);padding:4px 0}
 </style>
 </head>
 <body>
@@ -154,6 +186,7 @@ select option{background:var(--surface)}
   <button onclick="showTab('savings')" id="tab-savings">💎 Úspory</button>
   <button onclick="showTab('gold')" id="tab-gold">🥇 Zlato</button>
   <button onclick="showTab('cats')" id="tab-cats">🏷 Kategorie</button>
+  <button onclick="showTab('simulace')" id="tab-simulace">🧪 Simulace</button>
 </nav>
 
 <!-- ===== IO + THEME BAR ===== -->
@@ -404,6 +437,70 @@ select option{background:var(--surface)}
   </div>
 </div>
 
+<!-- ===== SIMULACE ===== -->
+<div id="simulace" class="container">
+  <div id="simEmptyEl" class="card">
+    <h3>🧪 Simulace — co kdyby</h3>
+    <div class="sim-intro">Vyzkoušej si, jak by vypadal rozpočet, kdyby se něco změnilo — nižší splátka, jiná částka spoření, nová položka, jiná výplata. Simulace pracuje s <b>kopií</b> dat: reálný měsíc, stavy „zaplaceno“ ani žádné jiné údaje se nikdy nezmění.</div>
+    <button class="btn btn-primary" onclick="simStart()">Začít simulaci (zkopíruje aktuální data)</button>
+  </div>
+
+  <div id="simBodyEl" style="display:none">
+    <div class="sim-sticky" id="simStickyEl"></div>
+
+    <div class="card">
+      <h3>Nastavení simulace</h3>
+      <div id="simControlsEl"></div>
+    </div>
+
+    <div class="card">
+      <h3>Porovnání: teď × simulace</h3>
+      <div id="simSummaryEl"></div>
+    </div>
+
+    <div class="card">
+      <h3>Fixní výdaje</h3>
+      <div class="sim-intro" style="margin-bottom:6px">Přepiš částku, nebo položku vypni (škrtne se a nepočítá se). Změněné řádky jsou zvýrazněné. Pravidelné měsíční spoření najdeš tady ve skupině Úspory.</div>
+      <div id="simFixedEl"></div>
+    </div>
+
+    <div class="card">
+      <h3>Variabilní výdaje</h3>
+      <div id="simExtraEl"></div>
+    </div>
+
+    <div class="card">
+      <h3>Úspory — zůstatky na účtech</h3>
+      <div id="simSavingsEl"></div>
+    </div>
+
+    <div class="card">
+      <h3>Přidat položku jen do simulace</h3>
+      <div class="form-row">
+        <div class="form-group" style="flex:2"><label>Typ</label>
+          <select id="simAddType" onchange="simAddTypeChange()">
+            <option value="fixed">Fixní výdaj</option>
+            <option value="extra">Variabilní výdaj</option>
+            <option value="savings">Spořicí účet (zůstatek)</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex:3"><label>Název</label><input id="simAddName" type="text" placeholder="např. Nová splátka"/></div>
+        <div class="form-group"><label>Částka (Kč)</label><input id="simAddAmount" type="number" inputmode="decimal" placeholder="0"/></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group" id="simAddDayWrap"><label>Den</label><input id="simAddDay" type="number" inputmode="numeric" placeholder="1–31" min="1" max="31"/></div>
+        <div class="form-group" id="simAddCatWrap" style="flex:2"><label>Kategorie</label><select id="simAddCat"></select></div>
+        <div class="form-group" id="simAddFreqWrap"><label>Frekvence</label><select id="simAddFreq" onchange="simAddTypeChange()"></select></div>
+        <div class="form-group" id="simAddDmWrap"><label>Splatný měsíc</label><select id="simAddDm"></select></div>
+        <div class="form-group" id="simAddLiqWrap"><label>Likvidita</label>
+          <select id="simAddLiq"><option value="0">⚡ Okamžitá</option><option value="1" selected>📅 Střednědobá</option><option value="2">🔒 Dlouhá</option></select>
+        </div>
+        <div style="align-self:flex-end"><button class="btn btn-primary" onclick="simAdd()">Přidat</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 // ============================================================
 // DATA & DEFAULTS
@@ -575,6 +672,7 @@ function showTab(t){
   document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
   document.getElementById(t).classList.add('active');
   document.getElementById('tab-'+t).classList.add('active');
+  if(t==='simulace')simRenderAll();
 }
 
 // ============================================================
@@ -1299,7 +1397,8 @@ async function exportData(){
     _exportedAt:now.toISOString(),
     _exportedDate:dateHuman,
     salary,balanceSavings,payDay,paymentStatus,categories,groups,
-    baseExpenses,extraExpenses,savings,gold
+    baseExpenses,extraExpenses,savings,gold,
+    ...(sim?{sim}:{})
   };
   // .txt místo .json — čistě kvůli nahrávání do Disku/Keep apod., obsah zůstává JSON
   const filename=`finance_tracker_${dateStr}.txt`;
@@ -1344,7 +1443,8 @@ function importData(ev){
       if(data.extraExpenses){extraExpenses=data.extraExpenses;lsSet('extraExpenses',extraExpenses)}
       if(data.savings){savings=data.savings;lsSet('savings',savings)}
       if(data.gold){gold=data.gold;lsSet('gold',gold)}
-      lsSet('ft_init_v5',true);render();
+      if(data.sim&&Array.isArray(data.sim.fixed)){sim=data.sim;simSave()}
+      lsSet('ft_init_v5',true);render();simRenderAll();
       showIoMsg('✓ Importováno — data načtena','ok');
     }catch(err){showIoMsg('✗ Chyba: '+err.message,'err')}
     ev.target.value='';
@@ -1355,6 +1455,286 @@ function showIoMsg(text,type){
   const el=document.getElementById('ioMsg');
   el.textContent=text;el.className='io-msg '+type;el.style.display='inline-block';
   setTimeout(()=>{el.style.display='none'},4000);
+}
+
+// ============================================================
+// SIMULACE (co kdyby) — pracuje jen nad kopií dat (localStorage klíč "sim").
+// Reálná data (baseExpenses, extraExpenses, savings, salary, paymentStatus…) se odsud NIKDY nezapisují.
+// ============================================================
+let sim = ls('sim',null);
+if(sim && !(Array.isArray(sim.fixed)&&Array.isArray(sim.extra)&&Array.isArray(sim.savings)))sim=null;
+let simMonthsOpen=false;
+
+function simSave(){lsSet('sim',sim)}
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function fmtDelta(d){
+  if(Math.abs(d)<0.005)return '—';
+  return (d>0?'+':'−')+fmt(Math.abs(d));
+}
+function deltaCls(d,goodWhenUp){
+  if(Math.abs(d)<0.005)return 'd-zero';
+  return ((d>0)===goodWhenUp)?'d-good':'d-bad';
+}
+// číslo měsíce, ve kterém právě začal aktuální výplatní cyklus (stejná logika jako v render())
+function currentCycleFromMonth(){
+  const now=new Date();let m=now.getMonth()+1;
+  if(now.getDate()<payDay)m=m===1?12:m-1;
+  return m;
+}
+// podpis reálných dat — poznáme, že se od založení simulace něco v reálu změnilo
+function simSig(){return JSON.stringify([salary,balanceSavings,payDay,baseExpenses,extraExpenses,savings])}
+
+// je fixní výdaj splatný v cyklu, který začíná v měsíci fromMonth? (stejné pravidlo jako dashboard)
+function dueFrom(e,fromMonth){
+  const toMonth=fromMonth%12+1;
+  const m=(e.day&&e.day<payDay)?toMonth:fromMonth;
+  return isDueInMonth(e,m);
+}
+function liveData(){
+  return {salary,balanceSavings,fixed:baseExpenses,extra:extraExpenses,savings};
+}
+function simCalc(d,fromMonth){
+  const num=v=>Number(v)||0;
+  const fx=d.fixed.filter(e=>!e.off);
+  const fixedDue=fx.filter(e=>dueFrom(e,fromMonth));
+  const extraOn=d.extra.filter(e=>!e.off);
+  const totalFixed=fixedDue.reduce((s,e)=>s+num(e.amount),0);
+  const fixedAvg=fx.reduce((s,e)=>s+num(e.amount)/(FREQ_DIVISOR[e.freq||'monthly']||1),0);
+  const totalExtra=extraOn.reduce((s,e)=>s+num(e.amount),0);
+  const totalExp=totalFixed+totalExtra;
+  const salaryV=num(d.salary);
+  const balance=salaryV-totalExp;
+  const savTotal=d.savings.filter(s=>!s.off).reduce((s,x)=>s+num(x.amount),0)+num(d.balanceSavings);
+  const goldVal=gold.reduce((s,g)=>s+g.weight*g.rate,0);
+  const cg=catGroupMap();
+  const groupsSum={};
+  [...fixedDue,...extraOn].forEach(e=>{
+    const g=(e.cat&&cg[e.cat])||'';
+    groupsSum[g]=(groupsSum[g]||0)+num(e.amount);
+  });
+  return {salary:salaryV,totalFixed,fixedAvg,totalExtra,totalExp,balance,savTotal,goldVal,net:savTotal+goldVal,groupsSum,
+          avgBalance:salaryV-fixedAvg-totalExtra};
+}
+
+// ---------- ovládání ----------
+function simStart(){
+  sim={
+    created:new Date().toISOString(),
+    month:currentCycleFromMonth(),
+    sig:simSig(),
+    salary:salary,
+    balanceSavings:balanceSavings,
+    fixed:baseExpenses.map(e=>({...e,orig:e.amount,off:false,added:false})),
+    extra:extraExpenses.map(e=>({...e,orig:e.amount,off:false,added:false})),
+    savings:savings.map(s=>({...s,orig:s.amount,off:false,added:false}))
+  };
+  simSave();simRenderAll();
+}
+function simRestart(){
+  if(!confirm('Obnovit simulaci z aktuálních dat? Tvoje úpravy v simulaci se zahodí.'))return;
+  simStart();
+}
+function simDiscard(){
+  if(!confirm('Zahodit simulaci? Reálná data zůstanou beze změny.'))return;
+  sim=null;
+  try{localStorage.removeItem('sim')}catch{}
+  simRenderAll();
+}
+function simSetMonth(v){sim.month=Number(v)||currentCycleFromMonth();simSave();simRenderLists();simRenderSummary()}
+function simSetSalary(v){sim.salary=Number(v)||0;simSave();simRenderSummary()}
+function simSetBalSav(v){sim.balanceSavings=Number(v)||0;simSave();simRenderSummary()}
+function simSet(type,i,v){
+  const it=sim[type][i];if(!it)return;
+  it.amount=Number(v)||0;simSave();simUpdateRow(type,i);simRenderSummary();
+}
+function simToggle(type,i){
+  const it=sim[type][i];if(!it)return;
+  it.off=!it.off;simSave();simUpdateRow(type,i);simRenderSummary();
+}
+function simRemove(type,i){
+  sim[type].splice(i,1);simSave();simRenderLists();simRenderSummary();
+}
+
+// ---------- přidání položky jen do simulace ----------
+function simAddTypeChange(){
+  const t=document.getElementById('simAddType').value;
+  const freq=document.getElementById('simAddFreq').value;
+  const show=(id,on)=>{document.getElementById(id).style.display=on?'flex':'none'};
+  show('simAddDayWrap',t!=='savings');
+  show('simAddCatWrap',t!=='savings');
+  show('simAddFreqWrap',t==='fixed');
+  show('simAddDmWrap',t==='fixed'&&freq!=='monthly');
+  show('simAddLiqWrap',t==='savings');
+}
+function simAdd(){
+  const t=document.getElementById('simAddType').value;
+  const name=document.getElementById('simAddName').value.trim();
+  const amount=Number(document.getElementById('simAddAmount').value)||0;
+  if(!name||!amount){alert('Vyplň název a částku.');return}
+  const day=Number(document.getElementById('simAddDay').value)||0;
+  const cat=document.getElementById('simAddCat').value;
+  let item;
+  if(t==='fixed'){
+    const freq=document.getElementById('simAddFreq').value;
+    item={name,amount,day,cat,freq,dueMonth:Number(document.getElementById('simAddDm').value)||sim.month};
+  }else if(t==='extra'){
+    item={name,amount,day,cat};
+  }else{
+    item={name,amount,date:'',liq:Number(document.getElementById('simAddLiq').value)||0};
+  }
+  Object.assign(item,{orig:null,off:false,added:true});
+  sim[t].push(item);simSave();
+  document.getElementById('simAddName').value='';
+  document.getElementById('simAddAmount').value='';
+  simRenderLists();simRenderSummary();
+}
+
+// ---------- vykreslení ----------
+function simRenderAll(){
+  const empty=document.getElementById('simEmptyEl'),body=document.getElementById('simBodyEl');
+  if(!empty||!body)return;
+  if(!sim){empty.style.display='';body.style.display='none';return}
+  empty.style.display='none';body.style.display='';
+  simRenderControls();simRenderLists();simRenderSummary();
+}
+function simRenderControls(){
+  const stale=sim.sig!==simSig();
+  const created=new Date(sim.created);
+  const pad=n=>String(n).padStart(2,'0');
+  const cStr=`${created.getDate()}. ${created.getMonth()+1}. ${created.getFullYear()} ${pad(created.getHours())}:${pad(created.getMinutes())}`;
+  const monthOpts=MONTH_NAMES.map((m,i)=>`<option value="${i+1}"${sim.month===i+1?' selected':''}>Cyklus od ${payDay}. — ${m}</option>`).join('');
+  document.getElementById('simControlsEl').innerHTML=`
+    ${stale?`<div class="sim-banner">⚠ Od založení simulace se změnila reálná data (např. přibyl výdaj nebo se změnila výplata). Sloupec „Teď“ už je novější než kopie v simulaci. Chceš-li to sjednotit, použij „Obnovit z aktuálních dat“.</div>`:''}
+    <div class="form-row">
+      <div class="form-group" style="flex:2"><label>Pro který výplatní cyklus počítat</label>
+        <select onchange="simSetMonth(this.value)">${monthOpts}</select></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Výplata v simulaci (Kč)</label>
+        <input type="number" inputmode="decimal" value="${esc(sim.salary)}" oninput="simSetSalary(this.value)"/></div>
+      <div class="form-group"><label>Zůstatek → Úspory (Kč)</label>
+        <input type="number" inputmode="decimal" value="${esc(sim.balanceSavings||'')}" placeholder="0" oninput="simSetBalSav(this.value)"/></div>
+    </div>
+    <div style="font-size:.7rem;color:var(--muted);margin:2px 0 10px">Simulace založena ${cStr}. Reálná data se nemění.</div>
+    <div class="sim-actions">
+      <button class="btn btn-ghost btn-sm" onclick="simRestart()">↺ Obnovit z aktuálních dat</button>
+      <button class="btn btn-danger btn-sm" onclick="simDiscard()">✕ Zahodit simulaci</button>
+    </div>`;
+  // možnosti formuláře pro přidání
+  const catOpts='<option value="">— bez —</option>'+categories.map(c=>`<option value="${esc(c.name)}">${esc(c.name)}</option>`).join('');
+  const catEl=document.getElementById('simAddCat');if(catEl)catEl.innerHTML=catOpts;
+  const fEl=document.getElementById('simAddFreq');
+  if(fEl&&!fEl.options.length)fEl.innerHTML=Object.entries(FREQ_LABELS).map(([k,l])=>`<option value="${k}">${l}</option>`).join('');
+  const dEl=document.getElementById('simAddDm');
+  if(dEl&&!dEl.options.length)dEl.innerHTML=MONTH_NAMES.map((m,i)=>`<option value="${i+1}">${m}</option>`).join('');
+  simAddTypeChange();
+}
+
+function simDeltaHTML(type,it){
+  if(it.added)return '<span class="sim-tag">nová, jen v simulaci</span>';
+  const d=(Number(it.amount)||0)-(Number(it.orig)||0);
+  if(Math.abs(d)<0.005)return 'beze změny';
+  return `teď ${fmt(it.orig)} → <b class="${deltaCls(d,type==='savings')}">${fmtDelta(d)}</b>`;
+}
+function simMetaHTML(type,it){
+  let meta='';
+  if(type==='fixed'){
+    const f=it.freq||'monthly';
+    meta=(it.day?it.day+'. · ':'')+FREQ_LABELS[f]+(f!=='monthly'?' ('+MONTH_NAMES[(it.dueMonth||1)-1]+')':'');
+    if(!dueFrom(it,sim.month))meta+=' <span class="sim-tag">v tomto cyklu se neplatí</span>';
+  }else if(type==='extra'){
+    meta=it.day?it.day+'. ':'';
+  }else{
+    meta=['⚡ Okamžitá','📅 Střednědobá','🔒 Dlouhá'][it.liq||0];
+  }
+  return (meta?meta+' · ':'')+simDeltaHTML(type,it);
+}
+function simRowClasses(type,it){
+  const changed=!it.added&&Math.abs((Number(it.amount)||0)-(Number(it.orig)||0))>=0.005;
+  return 'sim-row'+(changed||it.added?' chg':'')+(it.off?' off':'')+(type==='fixed'&&!dueFrom(it,sim.month)?' notdue':'');
+}
+function simRowHTML(type,i){
+  const it=sim[type][i];
+  const del=it.added?`<button class="btn btn-danger btn-sm" onclick="simRemove('${type}',${i})">✕</button>`:'';
+  return `<div class="${simRowClasses(type,it)}" id="simrow_${type}_${i}">
+    <div class="sim-name"><div class="sn">${esc(it.name)}</div><div class="sm" id="simmeta_${type}_${i}">${simMetaHTML(type,it)}</div></div>
+    <input class="sim-in" type="number" inputmode="decimal" value="${esc(it.amount)}" oninput="simSet('${type}',${i},this.value)"/>
+    <label class="sim-off"><input type="checkbox" ${it.off?'checked':''} onchange="simToggle('${type}',${i})"/>vyp.</label>
+    ${del}
+  </div>`;
+}
+function simUpdateRow(type,i){
+  const it=sim[type][i];
+  const row=document.getElementById(`simrow_${type}_${i}`);
+  const meta=document.getElementById(`simmeta_${type}_${i}`);
+  if(row)row.className=simRowClasses(type,it);
+  if(meta)meta.innerHTML=simMetaHTML(type,it);
+}
+function simRenderLists(){
+  // fixní řadíme podle pozice ve výplatním cyklu, ale index držíme z původního pole
+  const fixedOrder=sim.fixed.map((e,i)=>i).sort((a,b)=>cyclePos(sim.fixed[a].day)-cyclePos(sim.fixed[b].day));
+  document.getElementById('simFixedEl').innerHTML=fixedOrder.length?fixedOrder.map(i=>simRowHTML('fixed',i)).join(''):'<div class="empty-state">Žádné fixní výdaje</div>';
+  const ex=sim.extra.map((e,i)=>i);
+  document.getElementById('simExtraEl').innerHTML=ex.length?ex.map(i=>simRowHTML('extra',i)).join(''):'<div class="empty-state">Žádné variabilní výdaje</div>';
+  const sv=sim.savings.map((e,i)=>i).sort((a,b)=>(sim.savings[a].liq||0)-(sim.savings[b].liq||0));
+  document.getElementById('simSavingsEl').innerHTML=sv.length?sv.map(i=>simRowHTML('savings',i)).join(''):'<div class="empty-state">Žádné účty</div>';
+}
+function simRenderSummary(){
+  if(!sim)return;
+  const A=simCalc(liveData(),sim.month);
+  const B=simCalc(sim,sim.month);
+  const dBal=B.balance-A.balance;
+
+  // lepicí lišta nahoře: co zůstane
+  document.getElementById('simStickyEl').innerHTML=`
+    <div class="ss-t">Co zůstane (výplata − výdaje)</div>
+    <div><div class="ss-l">Teď</div><div class="ss-v">${fmt(A.balance)}</div></div>
+    <div><div class="ss-l">Simulace</div><div class="ss-v ${B.balance>=0?'d-good':'d-bad'}">${fmt(B.balance)}</div></div>
+    <div><div class="ss-l">Rozdíl</div><div class="ss-v ${deltaCls(dBal,true)}">${fmtDelta(dBal)}</div></div>`;
+
+  const rows=[
+    ['Výplata',A.salary,B.salary,true,''],
+    ['Fixní výdaje (splatné v cyklu)',A.totalFixed,B.totalFixed,false,''],
+    ['Variabilní výdaje',A.totalExtra,B.totalExtra,false,''],
+    ['Výdaje celkem',A.totalExp,B.totalExp,false,'sub'],
+    ['ZŮSTANE',A.balance,B.balance,true,'strong'],
+    ['Ø měsíčně fixní (rozpočet)',A.fixedAvg,B.fixedAvg,false,''],
+    ['Úspory celkem',A.savTotal,B.savTotal,true,''],
+    ['Jmění (úspory + zlato)',A.net,B.net,true,'sub']
+  ];
+  const rowHTML=([l,a,b,up,cls])=>{
+    const d=b-a;
+    return `<tr class="${cls}"><td>${l}</td><td class="n">${fmt(a)}</td><td class="n">${fmt(b)}</td><td class="n ${deltaCls(d,up)}">${fmtDelta(d)}</td></tr>`;
+  };
+  let h=`<table class="sim-cmp"><thead><tr><th></th><th>Teď</th><th>Simulace</th><th>Rozdíl</th></tr></thead><tbody>${rows.map(rowHTML).join('')}</tbody></table>`;
+
+  // odhad za rok
+  const yearDiff=(B.avgBalance-A.avgBalance)*12;
+  h+=`<div style="margin-top:12px;font-size:.8rem">Odhad za rok (Ø měsíční zůstatek × 12): <b class="${deltaCls(yearDiff,true)}" style="font-family:'Space Mono',monospace">${fmtDelta(yearDiff)}</b>
+      <div style="font-size:.68rem;color:var(--muted);margin-top:2px">Počítá se s průměrnou měsíční částkou i u čtvrtletních, pololetních a ročních plateb.</div></div>`;
+
+  // skupiny kategorií
+  const gNames=[...groups,''];
+  const gRows=gNames.map(g=>{
+    const a=A.groupsSum[g]||0,b=B.groupsSum[g]||0;
+    return {g:g||'Bez skupiny',a,b};
+  }).filter(r=>Math.abs(r.a)>=0.005||Math.abs(r.b)>=0.005);
+  if(gRows.length){
+    h+=`<div class="sim-sub">Výdaje podle skupin (v tomto cyklu)</div><table class="sim-cmp"><thead><tr><th></th><th>Teď</th><th>Simulace</th><th>Rozdíl</th></tr></thead><tbody>
+      ${gRows.map(r=>{const d=r.b-r.a;return `<tr><td>${esc(r.g)}</td><td class="n">${fmt(r.a)}</td><td class="n">${fmt(r.b)}</td><td class="n ${deltaCls(d,false)}">${fmtDelta(d)}</td></tr>`}).join('')}
+      </tbody></table>`;
+  }
+
+  // přehled všech 12 cyklů
+  const mRows=[];
+  for(let m=1;m<=12;m++){
+    const a=simCalc(liveData(),m).balance,b=simCalc(sim,m).balance,d=b-a;
+    mRows.push(`<tr${m===sim.month?' class="sub"':''}><td>${MONTH_NAMES[m-1]}</td><td class="n">${fmt(a)}</td><td class="n">${fmt(b)}</td><td class="n ${deltaCls(d,true)}">${fmtDelta(d)}</td></tr>`);
+  }
+  h+=`<details class="sim-det" style="margin-top:12px" ${simMonthsOpen?'open':''} ontoggle="simMonthsOpen=this.open"><summary>Zůstatek v jednotlivých cyklech (celý rok)</summary>
+    <table class="sim-cmp"><thead><tr><th>Cyklus od ${payDay}.</th><th>Teď</th><th>Simulace</th><th>Rozdíl</th></tr></thead><tbody>${mRows.join('')}</tbody></table></details>`;
+
+  document.getElementById('simSummaryEl').innerHTML=h;
 }
 
 // ============================================================
